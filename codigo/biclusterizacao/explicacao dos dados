@@ -1,0 +1,6 @@
+proposicoes -> dict com keys sendo o id da proposicao
+proposicao = proposicoes[key] -> dict{explicacao_ementa, apreciacao, ementa, situacao, tipo, nome, autor1, orgao_num, ano, numero, data_apresentacao, proposicao_principal, orgao_estado, link_teor, votacoes, indices, qtd_autores, regime}
+votacoes = proposicao[votacoes] -> list de dicts
+votacao = votacoes[i] -> dict{votos_contra, votos_favor, resumo, votos, orientacao_bancada, data}
+votos = votacao[votos] -> dict com key sendo o id do deputado
+voto = votos[id] -> dict{partido, voto}
