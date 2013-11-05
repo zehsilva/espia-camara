@@ -5,9 +5,9 @@
       <a class="navbar-brand" href="/topicos">Proposições por Tópicos</a>
     </div>
     <div class="navbar-collapse collapse">
-      <form class="navbar-form navbar-right">
+      <form class="navbar-form navbar-right" action="/resultados" method="post">
         <div class="form-group">
-          <input type="text" placeholder="Nome do deputado" class="form-control">
+          <input type="text" placeholder="Nome do deputado" class="form-control" name="query">
         </div>
         <button type="submit" class="btn btn-success">Pesquise um deputado</button>
       </form>

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
     <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
-
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
@@ -16,6 +15,7 @@
     <script src="../d3.layout.cloud.js"></script>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://code.jquery.com/jquery.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script>
       function carregaTopicosProposicoes(){
         var fill = d3.scale.category20();
@@ -23,7 +23,7 @@
         $.ajax({
             type: 'GET',
             url: '/getTopicosProposicoesDeputado/' + "<?php echo $id; ?>",
-            dataType: "json", // data type of response
+            dataType: "json",
             success: function(data, textStatus, jqXHR){
               if (data.length > 0){
                 d3.layout.cloud().size([300, 300])
@@ -155,6 +155,35 @@
           });
         }
       }
+
+      function carregaPresencas(){
+        $.ajax({
+            type: 'POST',
+            contentType: 'application/json',
+            url: '/getPresencasDeputado/' + <?php echo $id ?>,
+            dataType: "json",
+            success: function(data, textStatus, jqXHR){
+              if (data.length > 0){
+                google.load("visualization", "1", {packages:["corechart"]});
+                google.setOnLoadCallback(drawChart);
+                var options = {
+                  title: 'Quantidade de faltas em sessões por mês'
+                };
+
+                var chart = new google.visualization.LineChart(document.getElementById('sessoes'));
+                chart.draw(data, options);
+                alert('teste');
+              } else {
+                var div = document.getElementById('sessoes');
+                div.innerHTML = 'Esse deputado está de parabéns! Segundo nossa base de dados ele ainda não faltou nenhuma vez!';
+              }
+            },
+            error: function(jqXHR, textStatus, errorThrown){
+                var div = document.getElementById('sessoes');
+                div.innerHTML = 'Desculpa, não conseguimos recuperar as faltas desse deputado. Já estamos trabalhando nesse problema :-/';
+            }
+        });
+      }
     </script>
   </head>
   <body>
@@ -227,26 +256,14 @@
         <div class="panel panel-default">
           <div class="panel-heading">
             <h2 class="panel-title">
-              <a data-toggle="collapse" data-parent="#accordion" href="#presenca_sessao" onclick="">
+              <a data-toggle="collapse" data-parent="#accordion" href="#presenca_sessao" onclick="carregaPresencas();">
                 Esse deputado anda faltando as sessões?
               </a>
             </h2>
           </div>
           <div id="presenca_sessao" class="panel-collapse collapse">
             <div class="panel-body">
-              Escolha o ano:
-              <form class="form-inline" role="form">
-                <div class="form-group">
-                  <label class="sr-only" for="ano_faltas">Escolha o ano</label>
-                   <select class="form-control" placeholder="Escolha o ano" name="ano_faltas" id="ano_faltas" multiple="multiple">
-                    <option>1998</option>
-                    <option>1999</option>
-                    <option>2000</option>
-                    <option>2001</option>
-                    <option>2002</option>
-                 </select>
-                </div>
-              </form>
+              <div id="sessoes" style="width: 100%; height: 500px;"></div>
             </div>
           </div>
         </div>
