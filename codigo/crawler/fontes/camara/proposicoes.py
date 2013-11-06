@@ -547,7 +547,8 @@ def get_votacao_proposicao(proposicao, deputados, deputados_por_nome, \
 			elif voto == "NAO":
 				votos_contra += 1
 			
-			id_deputado = dados_deputados.obtem_deputado_por_nome( \
+			id_deputado = dados_deputados.obtem_deputado_por_id( \
+				int(voto_deputado._ideCadastro), \
 				uniformiza(voto_deputado._Nome), \
 				uniformiza(voto_deputado._Partido), \
 				uniformiza(voto_deputado._UF), deputados, deputados_por_nome, \

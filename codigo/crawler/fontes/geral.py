@@ -29,7 +29,8 @@ def remove_acentos(texto):
 	else:
 		u_texto = texto.decode("utf-8")
 	
-	return unicodedata.normalize('NFKD', u_texto).encode('ascii', 'ignore')
+	return unicodedata.normalize('NFKD', u_texto).encode('ascii', 'ignore'). \
+		decode("utf-8")
 
 def normaliza(texto):
 	return remove_acentos(texto).upper().strip().replace("`", "'")

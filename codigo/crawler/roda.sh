@@ -1,4 +1,4 @@
-EXEC=1
+EXEC=30
 mkdir exec_atual
 while true
 	do

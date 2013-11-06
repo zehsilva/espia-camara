@@ -293,14 +293,14 @@ def deputado_antigo(nome_parlamentar, partido, uf, deputados_antigos, \
 		nome_parlamentar = '-'.join(partes[:-1])
 	
 	nome_parlamentar = nome_parlamentar.split(',')[0]
-	nome_parlamentar_aux = nome_parlamentar
+	nome_parlamentar_aux = normaliza(nome_parlamentar)
 	tentativa = 1
 	
 	while True:
 		try:
 			id_deputado = deputados_antigos_por_nome[nome_parlamentar_aux]
 			deputado = deputados_antigos[id_deputado]
-		
+			
 			if deputado['uf'] == None or deputado['uf'] == uf or \
 				deputado['uf'] == '':
 				
@@ -309,12 +309,15 @@ def deputado_antigo(nome_parlamentar, partido, uf, deputados_antigos, \
 				if deputado['partido'] == None and partido != None:
 					deputado['partido'] = partidos_por_sigla[partido]
 				
+				if deputado_id != None:
+					deputado['id'] = deputado_id
+				
 				return id_deputado
 		except KeyError:
 			pass
 		
 		if not nome_parlamentar_aux in deputados_antigos_por_nome.keys():
-			id_deputado = - (len(deputados_antigos) + 1)
+			id_deputado = min(deputados_antigos.keys()) - 1
 			deputados_antigos[id_deputado] = { \
 				'id': deputado_id, \
 				'nome_deputado': nome_parlamentar.title(), \
@@ -322,11 +325,11 @@ def deputado_antigo(nome_parlamentar, partido, uf, deputados_antigos, \
 					partido != '' else None, \
 				'uf': uf, \
 				'legislaturas': set([])}
-			deputados_antigos_por_nome[nome_parlamentar] = id_deputado
+			deputados_antigos_por_nome[nome_parlamentar_aux] = id_deputado
 			
 			return id_deputado
 		
-		nome_parlamentar_aux = nome_parlamentar + str(tentativa)
+		nome_parlamentar_aux = normaliza(nome_parlamentar + str(tentativa))
 		tentativa += 1
 
 def obtem_deputado_por_id(id_deputado, nome_parlamentar, partido, uf, \
@@ -344,7 +347,7 @@ def obtem_deputado_por_nome(nome_parlamentar, partido, uf, deputados, \
 	partidos_por_sigla):
 	
 	try:
-		id_deputado = deputados_por_nome[nome_parlamentar]
+		id_deputado = deputados_por_nome[normaliza(nome_parlamentar)]
 		deputado = deputados[id_deputado]
 		
 		if uf != None and deputado['uf'] != uf:
@@ -468,7 +471,15 @@ def get_blocos(partidos_por_sigla):
 	
 	dict_blocos["Governo"] = { \
 		"sigla_bloco": "Gov.", \
-		"nome_bloco": "Liderança do Governo", \
+		"nome_bloco": "Liderança do Governo na Câmara dos Deputados", \
+		"representante": None, \
+		"data_criacao": None, \
+		"data_extincao": None, \
+		"partidos": None}
+	
+	dict_blocos["GovernoCN"] = { \
+		"sigla_bloco": "Gov.", \
+		"nome_bloco": "Liderança do Governo no Congresso Nacional", \
 		"representante": None, \
 		"data_criacao": None, \
 		"data_extincao": None, \
@@ -481,18 +492,34 @@ def get_blocos(partidos_por_sigla):
 	
 	dict_blocos["Minoria"] = { \
 		"sigla_bloco": "Minoria", \
-		"nome_bloco": "Liderança da Minoria", \
+		"nome_bloco": "Liderança da Minoria na Câmara dos Deputados", \
 		"representante": None, \
 		"data_criacao": None, \
 		"data_extincao": None, \
 		"partidos": None}
 	
+	dict_blocos["MinoriaCN"] = { \
+		"sigla_bloco": "MinoriaCN", \
+		"nome_bloco": "Liderança da Minoria no Congresso Nacional", \
+		"representante": None, \
+		"data_criacao": None, \
+		"data_extincao": None, \
+		"partidos": None}
+
 	dict_blocos_por_sigla[uniformiza(dict_blocos["Minoria"]['sigla_bloco'])] = \
 		"Minoria"
 	
 	dict_blocos["Maioria"] = { \
-		"sigla_bloco": uniformiza("Maioria"), \
-		"nome_bloco": "Liderança da Maioria", \
+		"sigla_bloco": "Maioria", \
+		"nome_bloco": "Liderança da Maioria na Câmara dos Deputados", \
+		"representante": None, \
+		"data_criacao": None, \
+		"data_extincao": None, \
+		"partidos": None}
+	
+	dict_blocos["MaioriaCN"] = { \
+		"sigla_bloco": "MaioriaCN", \
+		"nome_bloco": "Liderança da Maioria no Congresso Nacional", \
 		"representante": None, \
 		"data_criacao": None, \
 		"data_extincao": None, \
