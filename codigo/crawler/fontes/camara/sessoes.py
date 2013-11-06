@@ -174,7 +174,7 @@ def get_presencas(deputados, deputados_por_nome, deputados_antigos, \
 			'parlamentar')
 		
 		for dados_deputado in lista_deputados:
-			nome_parlamentar = re.split(r'\-[A-Z]+\/[A-Z]{2}', \
+			nome_parlamentar = re.split(r'\-[A-Za-z\.]+\/[A-Z]{2}', \
 				uniformiza(dados_deputado.nomeParlamentar))[0]
 			
 			id_deputado = dados_deputados.obtem_deputado_por_nome( \

@@ -16,31 +16,25 @@ License], sob o título "LICENCA.txt", junto com este programa, se não, acesse
 http://www.gnu.org/licenses/
 """
 
-import xml.etree.ElementTree as et
 import deputados as dados_deputados
 import datetime
 import urllib
 import zipfile
 import numpy as np
 import os
+import re
 from fontes.geral import *
 import fontes.camara.orgaos as dados_orgaos
 
+TAMANHO_BUFFER_DESPESA = 1000
+
 def atributo(estrutura, campo):
 	try:
-		dado = estrutura.find(campo).text
-	except AttributeError:
+		dado = estrutura[campo]
+	except KeyError:
 		dado = ''
 	
 	return dado if dado != None else ''
-
-def atributo2(estrutura, campo):
-	dado = estrutura.find(campo).text
-	
-	if dado == None:
-		raise AttributeError()
-	
-	return dado
 
 def atributo_tipo(tipo, estrutura, campo):
 	try:
@@ -48,19 +42,42 @@ def atributo_tipo(tipo, estrutura, campo):
 	except ValueError:
 		return 0
 
-def obtem_dados(arquivo, despesas, deputados, deputados_por_nome, \
+def obtem_dados(nome_arquivo, despesas, deputados, deputados_por_nome, \
 	deputados_antigos, deputados_antigos_por_nome, partidos_por_sigla, \
 	blocos_por_sigla, orgaos, orgaos_por_id):
 	
-	dados_arquivo = et.parse(arquivo)
-	raiz_dados = dados_arquivo.getroot()
+	arquivo_despesas = open(nome_arquivo, 'r')
+	buffer_texto = ''
 	
-	for despesa in raiz_dados[0].iter('DESPESA'):
-		nome_origem = normaliza(atributo(despesa, 'txNomeParlamentar'))
+	while True:
+		# Processa o arquivo
+		blocos_despesas = buffer_texto.split('</DESPESA>', 1)
+	
+		if len(blocos_despesas) <= 1:
+			lido = arquivo_despesas.read(TAMANHO_BUFFER_DESPESA). \
+				decode('cp852').encode('utf8')
+		
+			if lido == '':
+				break
+		
+			buffer_texto += lido
+			continue
+		
+		buffer_texto = blocos_despesas[1]
+		
+		texto_despesa = blocos_despesas[0].split('<DESPESA>')[1]
+		partes_despesa = re.split(r'\<([^\>]+[^\/])\>', texto_despesa)
+		chaves_sem_dados = [p[1:-2] for p in partes_despesa[::4] if p != '']
+		
+		despesa = dict(zip(partes_despesa[1::4] + chaves_sem_dados, \
+			partes_despesa[2::4] + ([''] * len(chaves_sem_dados))))
+		
+		# Registra despesa
+		nome_origem = uniformiza(atributo(despesa, 'txNomeParlamentar'))
 		
 		try:
-			uf = normaliza(atributo2(despesa, 'sgUF'))
-			partido = normaliza(atributo2(despesa, 'sgPartido'))
+			uf = normaliza(despesa['sgUF'])
+			partido = normaliza(despesa['sgPartido'])
 			id_origem = dados_deputados.obtem_deputado_por_nome(nome_origem, \
 				partido, uf, deputados, deputados_por_nome, deputados_antigos, \
 				deputados_antigos_por_nome, partidos_por_sigla)
@@ -76,16 +93,16 @@ def obtem_dados(arquivo, despesas, deputados, deputados_por_nome, \
 				'codLegislatura'))
 			
 			tipo_origem = 'deputado'
-		except AttributeError:
+		except KeyError:
 			try:
 				id_origem = partidos_por_sigla[nome_origem.replace(' ', '')]
-				tipo_origem = 'partidos'
+				tipo_origem = 'partido'
 			except KeyError:
 				if normaliza(nome_origem) in orgaos.keys():
-					tipo_origem = 'orgaos'
+					tipo_origem = 'orgao'
 					id_origem = normaliza(nome_origem)
 				elif nome_origem[:4] == uniformiza('LID.') or \
-					nome_origem[:9] == uniformiza(u'LIDERANÇA') or \
+					nome_origem[:5] == uniformiza(u'LIDER') or \
 					nome_origem == uniformiza('MINORIA-CN') or \
 					nome_origem == uniformiza('LIDMIN'):
 				
@@ -107,7 +124,7 @@ def obtem_dados(arquivo, despesas, deputados, deputados_por_nome, \
 				
 					try:
 						id_origem = partidos_por_sigla[aux.replace(' ', '')]
-						tipo = 'lideranca_part'
+						tipo_origem = 'lideranca_part'
 					except KeyError:
 						if aux[:3] == 'MIN':
 							id_origem = blocos_por_sigla['MINORIA']
@@ -127,7 +144,11 @@ def obtem_dados(arquivo, despesas, deputados, deputados_por_nome, \
 		
 		aux_cpf_cnpj = atributo(despesa, 'txtCNPJCPF')
 		descricao_detalhada = atributo(despesa, 'txtDescricaoEspecificacao')
-		valor_documento = despesa.find('vlrDocumento')
+		
+		try:
+			valor_documento = despesa['vlrDocumento']
+		except KeyError:
+			valor_documento = 0.
 		
 		try:
 			data_emissao = datetime.datetime.strptime(atributo(despesa, \
@@ -139,19 +160,16 @@ def obtem_dados(arquivo, despesas, deputados, deputados_por_nome, \
 			'cod_tipo_despesa': atributo_tipo(int, despesa, 'numSubCota'), \
 			'cod_tipo_detalhado': \
 				atributo_tipo(int, despesa, 'numEspecificacaoSubCota'), \
-			'descricao': atributo(despesa, 'txtDescricao'). \
-				encode('iso-8859-1'), \
-			'descricao_detalhada': descricao_detalhada.encode('iso-8859-1'), \
-			'beneficiario': \
-				atributo(despesa, 'txtBeneficiario').encode('iso-8859-1'), \
+			'descricao': atributo(despesa, 'txtDescricao'), \
+			'descricao_detalhada': descricao_detalhada, \
+			'beneficiario': atributo(despesa, 'txtBeneficiario'), \
 			'pessoa_fisica': len(aux_cpf_cnpj) == 11, \
 			'cpf_cnpj': int(aux_cpf_cnpj) if aux_cpf_cnpj != '' else -1, \
 			'tipo_documento': \
 				atributo_tipo(int, despesa, 'indTipoDocumento'), \
-			'numero_documento': \
-				atributo(despesa, 'txtNumero').encode('iso-8859-1'), \
+			'numero_documento': atributo(despesa, 'txtNumero'), \
 			'data_emissao': data_emissao, \
-			'valor_documento': float(valor_documento.text) if \
+			'valor_documento': float(valor_documento) if \
 				valor_documento != None else 0., \
 			'valor_glosa': atributo_tipo(float, despesa, 'vlrGlosa'), \
 			'valor_liquido': atributo_tipo(float, despesa, 'vlrLiquido'), \
@@ -162,33 +180,41 @@ def obtem_dados(arquivo, despesas, deputados, deputados_por_nome, \
 			'num_ressarcimento': \
 				atributo_tipo(int, despesa, 'numRessarcimento')})
 
+FONTES = { \
+	'ano_atual': { \
+		'link': 'http://www.camara.gov.br/cotas/AnoAtual.zip', \
+		'arquivo': 'AnoAtual.xml'}, \
+	'ano_anterior': { \
+		'link': 'http://www.camara.gov.br/cotas/AnoAnterior.zip', \
+		'arquivo': 'AnoAnterior.xml'}, \
+	'anos_anteriores': { \
+		'link': 'http://www.camara.gov.br/cotas/AnosAnteriores.zip', \
+		'arquivo': 'AnosAnteriores.xml'} \
+	}
+
 def get_despesas(deputados, deputados_por_nome, deputados_antigos, \
 	deputados_antigos_por_nome, partidos_por_sigla, blocos_por_sigla, orgaos, \
-	orgaos_por_id):
+	orgaos_por_id, fonte):
 	
-	fontes = [{ \
-		'link': 'http://www.camara.gov.br/cotas/AnoAtual.zip', \
-		'arquivo': 'AnoAtual.xml'}, { \
-		'link': 'http://www.camara.gov.br/cotas/AnoAnterior.zip', \
-		'arquivo': 'AnoAnterior.xml'}]#, { \
-	#	'link': 'http://www.camara.gov.br/cotas/AnosAnteriores.zip', \
-	#	'arquivo': 'AnosAnteriores.xml'}]
+	despesas = {}
 	
 	dir_dados = "/tmp/camara_dados_%d/" % (np.random.random() * \
 		np.iinfo(np.int32).max)
 	os.makedirs(dir_dados)
 	
-	despesas = {}
-	
-	for fonte in fontes:
+	if fonte == FONTES['anos_anteriores']:
+		arquivo_xml = '/tmp/camara_dados_1208382974/AnosAnteriores.xml'
+	else:
 		arquivo_nome, dummy = urllib.urlretrieve(fonte['link'])
-		
+	
 		with zipfile.ZipFile(arquivo_nome, 'r') as arquivo_zip:
 			arquivo_zip.extractall(path=dir_dados)
 		
-		obtem_dados(dir_dados + fonte['arquivo'], despesas, deputados, \
-			deputados_por_nome, deputados_antigos, deputados_antigos_por_nome, \
-			partidos_por_sigla, blocos_por_sigla, orgaos, orgaos_por_id)
+		arquivo_xml = dir_dados + fonte['arquivo']
+	
+	obtem_dados(arquivo_xml, despesas, deputados, \
+		deputados_por_nome, deputados_antigos, deputados_antigos_por_nome, \
+		partidos_por_sigla, blocos_por_sigla, orgaos, orgaos_por_id)
 	
 	return despesas
 

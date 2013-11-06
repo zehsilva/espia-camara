@@ -20,6 +20,8 @@ import csv
 import urllib
 from geral import *
 
+TIPO_CIDADE = 5
+
 def get_municipios():
 	municipios = {}
 	municipios_por_cod_tse = {}
@@ -90,6 +92,23 @@ def get_municipios():
 						break
 			
 			municipios_por_cod_tse[cod_tse] = cod_ibge
+	
+	with open('municipios_info.txt', 'rb') as arquivo_equivalencia:
+		dados = [linha.split('","') for linha in arquivo_geo_municipios.readlines()]
+	
+	for dado_municipio in dados[1:]:
+		if int(dado_municipio[16]) != TIPO_CIDADE:
+			continue
+	
+		cod_ibge = int(dado_municipio[10])
+		long_municipio = float(dado_municipio[19].replace(',', '.'))
+		lat_municipio = float(dado_municipio[20].replace(',', '.'))
+	
+		try:
+			municipios[cod_ibge]['longitude'] = long_municipio
+			municipios[cod_ibge]['latitude'] = lat_municipio
+		except KeyError:
+			pass
 	
 	return municipios, municipios_por_cod_tse
 

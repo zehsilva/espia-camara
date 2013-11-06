@@ -609,8 +609,8 @@ def obtem_dados(estado, restaura_execucao, arquivo_estado, pasta_temporaria, \
 				for ano in range(ano_obtendo, ano_final + 1):
 					print "-- Obtendo presenças em sessoes em %s" % ano,
 				
-					data_inicio = datetime.date(ano, 1, 1)
-					data_final = datetime.date(ano, 12, 31)
+					data_inicio = datetime.datetime(ano, 1, 1)
+					data_final = datetime.datetime(ano, 12, 31)
 				
 					presencas_ano = dados_sessoes.get_presencas(deputados, \
 						deputados_por_nome, deputados_antigos, \
@@ -814,12 +814,21 @@ def obtem_dados(estado, restaura_execucao, arquivo_estado, pasta_temporaria, \
 			
 			print "- Obtendo dados de gastos das cotas parlamentares..."
 			
-			despesas = dados_cotas_parlamentares.get_despesas(deputados, \
-				deputados_por_nome, deputados_antigos, \
-				deputados_antigos_por_nome, partidos_por_sigla, \
-				blocos_por_sigla, orgaos, orgaos_por_id)
-
-			salva_lista_dados(['despesas', 'deputados', 'deputados_por_nome', \
+			despesas = {}
+			
+			for fonte in dados_cotas_parlamentares.FONTES.keys():
+				despesas[fonte] = dados_cotas_parlamentares.get_despesas(deputados, \
+					deputados_por_nome, deputados_antigos, \
+					deputados_antigos_por_nome, partidos_por_sigla, \
+					blocos_por_sigla, orgaos, orgaos_por_id, \
+					dados_cotas_parlamentares.FONTES[fonte])
+			
+			despesas_atual = despesas['ano_atual']
+			despesas_anterior = despesas['ano_anterior']
+			despesas_outros = despesas['anos_anteriores']
+			
+			salva_lista_dados(['despesas_atual', 'despesas_anterior', \
+				'despesas_outros', 'deputados', 'deputados_por_nome', \
 				'deputados_antigos', 'deputados_antigos_por_nome', \
 				'blocos_por_sigla', 'orgaos', 'orgaos_por_id'], \
 				pasta_temporaria)
@@ -868,7 +877,7 @@ def obtem_dados(estado, restaura_execucao, arquivo_estado, pasta_temporaria, \
 		salva_lista_dados(['deputados_por_nome_completo', \
 			'deputados_por_nome_completo_na', 'deputados_por_seq', \
 			'deputados_por_nome_tse', 'deputados', 'municipios', \
-			'municipios_por_cod_tse'], pasta_temporaria)
+			'municipios_por_cod_tse', 'votacoes'], pasta_temporaria)
 
 	print "Salvando dados..."
 	

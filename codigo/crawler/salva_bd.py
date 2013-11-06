@@ -17,10 +17,13 @@ http://www.gnu.org/licenses/
 """
 
 import MySQLdb
+import _mysql_exceptions
 import cPickle as pickle
 import datetime
 import re
 import itertools
+import math
+from fontes.geral import *
 
 usuario = ''
 senha = ''
@@ -36,7 +39,11 @@ def carrega_dados(nome_arquivo):
 	with open(nome_arquivo, 'rb') as arquivo_dados:
 		return pickle.load(arquivo_dados)
 
+latin1=False
+
 def decode(texto):
+	global latin1
+	
 	for encoding in ['utf8', 'iso-8859-1']:
 		try:
 			texto = texto.decode(encoding)
@@ -44,9 +51,14 @@ def decode(texto):
 		except UnicodeEncodeError:
 			pass
 	
-	return texto.replace(u'‘', '\'').replace(u'’', '\'').replace(u'“', '"'). \
+	texto = texto.replace(u'‘', '\'').replace(u'’', '\'').replace(u'“', '"'). \
 		replace(u'”', '"').replace(u'–', '-').replace(u'—', '-'). \
 		replace(u'…', '...')
+	
+	if latin1:
+		return texto.encode('latin1', 'ignore')
+	
+	return texto
 
 def arruma_campo(dicionario, chave=None):
 	if chave == None:
@@ -72,7 +84,7 @@ def arruma_campo(dicionario, chave=None):
 	
 	return campo
 
-def executa_query(query, dados, conexao=None):
+def executa_query(query, dados, conexao=None, debug=True):
 	if conexao == None:
 		conexao = dados
 		cursor = conexao.cursor()
@@ -80,7 +92,9 @@ def executa_query(query, dados, conexao=None):
 		try:
 			cursor.execute(query)
 		except:
-			print query
+			if debug:
+				print query
+			
 			raise
 		return
 	
@@ -89,7 +103,9 @@ def executa_query(query, dados, conexao=None):
 	try:
 		cursor.execute(query, dados)
 	except:
-		print query % dados
+		if debug:
+			print query % dados
+		
 		raise
 
 def salva_apreciacoes(conexao):
@@ -126,7 +142,7 @@ def salva_partidos(conexao):
 	for id_bloco in blocos.keys():
 		bloco = blocos[id_bloco]
 		
-		executa_query('INSERT INTO blocos (id_bloco, sigla, data_criacao, ' \
+		executa_query('INSERT INTO blocos (id_bloco, nome, data_criacao, ' \
 			'data_extincao) VALUES (%s, %s, %s, %s)', (arruma_campo( \
 			id_bloco), arruma_campo(bloco, 'sigla_bloco'), arruma_campo(bloco, \
 			'data_criacao'), arruma_campo(bloco, 'sigla_bloco')), conexao)
@@ -155,7 +171,7 @@ def salva_deputados(conexao):
 	
 	graus = set([(d['eleicao']['grau_instrucao_codigo'], decode(d['eleicao'] \
 		['grau_instrucao_descr']).capitalize()) for d in deputados.values() if \
-		'eleicao' in d.keys()])
+		'eleicao' in d.keys() and d['eleicao'] != {}])
 	
 	for grau in graus:
 		executa_query('INSERT INTO graus_instrucao (id_grau, descricao) ' \
@@ -163,7 +179,7 @@ def salva_deputados(conexao):
 
 	profissoes_tse = set([(d['eleicao']['ocupacao_codigo'], decode( \
 		d['eleicao']['ocupacao_descr']).capitalize()) for d in \
-		deputados.values() if 'eleicao' in d.keys()])
+		deputados.values() if 'eleicao' in d.keys() and d['eleicao'] != {}])
 	profissoes_cd = carrega_dados(pasta + 'profissoes.pkl')
 	profissoes_cd = set([(p, decode(profissoes_cd[p]).capitalize()) \
 		for p in profissoes_cd.keys()])
@@ -188,7 +204,7 @@ def salva_deputados(conexao):
 	for id_deputado in deputados.keys():
 		deputado = deputados[id_deputado]
 		
-		if 'eleicao' in deputado.keys():
+		if 'eleicao' in deputado.keys() and deputado['eleicao'] != {}:
 			seq_candidato = deputado["eleicao"]["seq_candidato"]
 			ocupacao = profissao_tse_por_cod[deputado["eleicao"] \
 				["ocupacao_codigo"]]
@@ -393,11 +409,8 @@ def salva_proposicoes(conexao):
 def salva_deputados_extra(conexao, bancada_partido, bancada_bloco):
 	deputados = carrega_dados(pasta + 'deputados.pkl')
 	
-	bancada_bloco['MinoriaCD'] = 107
-	bancada_bloco['MaioriaCD'] = 108
-	
 	bancada_bloco['M'] = bancada_bloco['Minoria']
-	bancada_bloco['I'] = bancada_bloco['MinoriaCD']
+	bancada_bloco['I'] = bancada_bloco['MinoriaCN']
 	bancada_bloco['G'] = bancada_bloco['Governo']
 	
 	for b in bancada_partido.keys():
@@ -508,7 +521,7 @@ def salva_dados_eleicoes(conexao):
 	tipo_bens = {}
 	
 	for deputado in deputados.values():
-		if 'eleicao' not in deputado.keys():
+		if 'eleicao' not in deputado.keys() or deputado['eleicao'] == {}:
 			continue
 		
 		try:
@@ -598,6 +611,474 @@ def salva_dados_eleicoes(conexao):
 					arruma_campo(receita, 'especie'), arruma_campo(receita, \
 					'descricao')), conexao)
 
+def salva_proposicoes_detalhes(conexao):
+	proposicoes = carrega_dados(pasta + 'proposicoes.pkl')
+	
+	for id_proposicao in proposicoes.keys():
+		for chave in ['substitutivos', 'redacoes_finais', 'emendas']:
+			if chave not in proposicoes[id_proposicao].keys():
+				continue
+			
+			for id_menor in proposicoes[id_proposicao][chave]:
+				executa_query('INSERT INTO proposicoes_referencias ' \
+					'(id_proposicao_menor, id_proposicao_referida, tipo) ' \
+					'VALUES (%s, %s, %s)', (arruma_campo(id_menor), \
+					arruma_campo(id_proposicao), arruma_campo(chave[0]. \
+					upper())), conexao)
+	
+	relatorios_proposicoes = carrega_dados(pasta + 'relatorios_proposicoes.pkl')
+	
+	for id_proposicao in relatorios_proposicoes.keys():
+		for id_orgao in relatorios_proposicoes[id_proposicao].keys():
+			relatorio = relatorios_proposicoes[id_proposicao][id_orgao]
+			
+			executa_query('INSERT INTO proposicoes_relatorios (id_proposicao,' \
+				' sigla_orgao, id_relator, parecer) VALUES (%s, %s, %s, %s)', \
+				(arruma_campo(id_proposicao), arruma_campo(id_orgao), \
+				arruma_campo(relatorio, 'relator'), arruma_campo(relatorio, \
+				'parecer')), conexao)
+	
+	andamentos = carrega_dados(pasta + 'andamentos.pkl')
+	
+	for id_proposicao in andamentos.keys():
+		andamento = andamentos[id_proposicao]
+		
+		for tipo in andamento.keys():
+			for aux in andamento[tipo]:
+				executa_query('INSERT INTO proposicoes_tramitacoes ' \
+					'(id_proposicao, sigla_orgao, data, descricao, tipo) ' \
+					'VALUES (%s, %s, %s, %s, %s)', (id_proposicao, id_orgao, \
+					arruma_campo(aux, 'data'), arruma_campo(aux, 'descricao'), \
+					arruma_campo(tipo[0].upper())), conexao)
+
+def salva_despesas_cota(conexao, bancada_partido, bancada_bloco):
+	deputados_por_nome = carrega_dados(pasta + 'deputados_por_nome.pkl')
+	despesas = {}
+	
+	for instante in ['outros', 'anterior', 'atual']:
+		despesas[instante] = carrega_dados(pasta + 'despesas_' + instante + \
+			'.pkl')
+	
+	tipos = set(itertools.chain(*[list(itertools.chain(*[list( \
+		itertools.chain(*[[(d['cod_tipo_despesa'], d['descricao']) for d in \
+		dc] for dc in dt.values()])) for dt in di.values()])) for di in \
+		despesas.values()]))
+	
+	for tipo in tipos:
+		executa_query('INSERT INTO despesas_cota_tipos (cod_tipo_despesa, ' \
+			'descricao) VALUES (%s, %s)', (arruma_campo(tipo[0]), \
+			arruma_campo(tipo[1])), conexao)
+	
+	tipos_detalhados = set(itertools.chain(*[list(itertools.chain(*[list( \
+		itertools.chain(*[[(d['cod_tipo_detalhado'], d['descricao_detalhada']) \
+		for d in dc] for dc in dt.values()])) for dt in di.values()])) for di \
+		in despesas.values()]))
+	
+	for tipo_detalhado in tipos_detalhados:
+		executa_query('INSERT INTO despesas_cota_tipos_detalhados ' \
+			'(cod_tipo_detalhado, descricao) VALUES (%s, %s)', \
+			(arruma_campo(tipo_detalhado[0]), arruma_campo( \
+			tipo_detalhado[1])), conexao)
+	
+	pessoas = set(itertools.chain(*[list(itertools.chain(*[list( \
+		itertools.chain(*[[(d['cpf_cnpj'], d['beneficiario'], \
+		d['pessoa_fisica']) for d in dc] for dc in dt.values()])) for dt in \
+		di.values()])) for di in despesas.values()]))
+	
+	for pessoa in pessoas:
+		if pessoa[0] < 0:
+			continue
+		
+		try:
+			executa_query('INSERT INTO pessoas (cpf_cnpj, nome, tipo_pessoa) ' \
+				'VALUES (%s, %s, %s)', (arruma_campo(pessoa[0]), \
+				arruma_campo(pessoa[1]), 'F' if pessoa[2] else 'J'), conexao, \
+				False)
+		except _mysql_exceptions.IntegrityError:
+			pass
+	
+	id_centro_custo = 0
+	equivalencia = {}
+	origens = set(itertools.chain(*[list(itertools.chain(*[[(t, o) for o in \
+		di[t].keys()] for t in di.keys()])) for di in despesas.values()]))
+	
+	for (tipo_origem, id_origem) in origens:
+		try:
+			equivalencia[tipo_origem][id_origem] = id_centro_custo
+		except KeyError:
+			equivalencia[tipo_origem] = {}
+			equivalencia[tipo_origem][id_origem] = id_centro_custo
+		
+		if tipo_origem == 'deputado':
+			campo = 'id_deputado'
+		elif tipo_origem in ['partido', 'lideranca_part']:
+			id_origem = bancada_partido[id_origem.upper()]
+			campo = 'id_bancada'
+		elif tipo_origem == 'orgao':
+			campo = 'sigla_orgao'
+		else:
+			if tipo_origem == 'lideranca_cn':
+				id_origem = bancada_bloco[id_origem + 'CN']
+			else:
+				id_origem = bancada_bloco[id_origem]
+			
+			campo = 'id_bancada'
+		
+		executa_query('INSERT INTO centros_custos (id_centro_custo, ' + campo \
+			+ ', tipo) VALUES (%s, %s, %s)', (arruma_campo(id_centro_custo), \
+			arruma_campo(id_origem), arruma_campo(tipo_origem)), conexao)
+		
+		id_centro_custo += 1
+	
+	id_despesa = 0
+	
+	for instante in despesas.keys():
+		for tipo_origem in despesas[instante].keys():
+			for id_origem in despesas[instante][tipo_origem].keys():
+				id_centro_custo = equivalencia[tipo_origem][id_origem]
+				
+				for despesa in despesas[instante][tipo_origem][id_origem]:
+					cpf = arruma_campo(despesa, 'cpf_cnpj')
+					cpf = None if cpf < 0 else cpf
+					
+					executa_query('INSERT INTO despesas_cota (id_despesa, ' \
+						'id_centro_custo, cod_tipo_despesa, ' \
+						'cod_tipo_detalhado, cpf_cnpj, tipo_documento, ' \
+						'numero_documento, data_emissao, valor_documento, ' \
+						'valor_glosa, valor_liquido, mes_debito, ano_debito, ' \
+						'num_parcela, num_lote, num_ressarcimento) VALUES ' \
+						'(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,' \
+						' %s, %s, %s)', (arruma_campo(id_despesa), \
+						arruma_campo(id_centro_custo), arruma_campo(despesa, \
+						'cod_tipo_despesa'), arruma_campo(despesa, \
+						'cod_tipo_detalhado'), cpf, arruma_campo(despesa, \
+						'tipo_documento'), arruma_campo(despesa, \
+						'numero_documento'), arruma_campo(despesa, \
+						'data_emissao'), arruma_campo(despesa, \
+						'valor_documento'), arruma_campo(despesa, \
+						'valor_glosa'), arruma_campo(despesa, \
+						'valor_liquido'), arruma_campo(despesa, 'mes_debito'), \
+						arruma_campo(despesa, 'ano_debito'), arruma_campo( \
+						despesa, 'num_parcela'), arruma_campo(despesa, \
+						'num_lote'), arruma_campo(despesa, \
+						'num_ressarcimento')), conexao)
+				
+					id_despesa += 1
+
+def _int(valor):
+	try:
+		return int(valor)
+	except ValueError:
+		return None
+
+def _bloco(nome, blocos, blocos_por_nome, bancada_partido, bancada_bloco, \
+	conexao):
+	
+	if nome in blocos.keys():
+		return nome
+	
+	partidos_aux = nome.split("/")
+	
+	if len(partidos_aux) > 1:
+		partidos = map(lambda a: uniformiza(a), partidos_aux)
+	else:
+		partidos_aux = re.split(r'([A-Z][a-z]+)', nome)
+		partidos = [normaliza(p) for p in partidos_aux[1::2]]
+	
+	nome = ', '.join(partidos)
+	
+	if nome in blocos_por_nome.keys():
+		return blocos_por_nome[nome]
+	
+	# TODO Inserir blocos, partidos nos blocos e bancadas
+	id_bloco = min([b for b in [_int(b) for b in blocos.keys()] if b != None]) \
+		- 1
+	id_bancada = max(bancada_partido.values() + bancada_bloco.values()) + 1
+	
+	executa_query('INSERT INTO blocos (id_bloco, nome) VALUES (%s, %s)', \
+		(arruma_campo(id_bloco), arruma_campo(nome)), conexao)
+	
+	executa_query('INSERT INTO bancadas (id_bancada, id_bloco) VALUES ' \
+		'(%s, %s)', (arruma_campo(id_bancada), arruma_campo(id_bloco)), \
+		conexao)
+	bancada_bloco[id_bloco] = id_bancada
+	
+	for partido in partidos:
+		executa_query('INSERT INTO partidos_blocos (id_bloco, id_partido) ' \
+			'VALUES (%s, %s)', (arruma_campo(id_bloco), arruma_campo( \
+			partido)), conexao)
+	
+	blocos[id_bloco] =  { \
+		"sigla_bloco": nome, \
+		"nome_bloco": nome, \
+		"representante": None, \
+		"data_criacao": None, \
+		"data_extincao": None, \
+		"partidos": [{ \
+			'partido': p, \
+			'data_adesao': None, \
+			'data_desligamento': None \
+			} for p in partidos]}
+	blocos_por_nome[nome] = id_bloco
+	
+	return id_bloco
+
+equivalencias_voto = {'SIM': 0, 'NAO': 1, 'ABSTENCAO': 2, 'ART. 17': 3, \
+	'OBSTRUCAO': 4, 'LIBERADO': 5}
+
+def salva_votacoes_proposicoes(conexao, blocos, blocos_por_nome, \
+	bancada_partido, bancada_bloco):
+	
+	proposicoes = carrega_dados(pasta + 'proposicoes.pkl')
+	id_votacao = 0
+	
+	for id_proposicao in proposicoes.keys():
+		proposicao = proposicoes[id_proposicao]
+		
+		for votacao in proposicao['votacoes']:
+			
+			votos_favor = len([v for v in votacao['votos'].values() \
+				if v['voto'] == 'SIM'])
+			votos_contra = len([v for v in votacao['votos'].values() \
+				if v['voto'] == 'NAO'])
+			
+			executa_query('INSERT INTO votacoes (id_votacao, id_proposicao, ' \
+				'resumo, data_votacao, votos_favor, votos_contra) VALUES (%s,' \
+				' %s, %s, %s, %s, %s)', (arruma_campo(id_votacao), \
+				arruma_campo(id_proposicao), arruma_campo(votacao, 'resumo'), 
+				arruma_campo(votacao, 'data'), arruma_campo(votos_favor), \
+				arruma_campo(votos_contra)), conexao)
+			
+			for id_partido in votacao['orientacao_bancada']['partidos'].keys():
+				orientacao = equivalencias_voto[votacao['orientacao_bancada'] \
+					['partidos'][id_partido]]
+				
+				executa_query('INSERT INTO orientacoes_votos (id_votacao, ' \
+					'id_bancada, orientacao) VALUES (%s, %s, %s)', \
+					(arruma_campo(id_votacao), arruma_campo(bancada_partido[ \
+					id_partido.upper()]), arruma_campo(orientacao)), conexao)
+			
+			for nome_bloco in votacao['orientacao_bancada']['blocos'].keys():
+				orientacao = equivalencias_voto[votacao['orientacao_bancada'] \
+					['blocos'][nome_bloco]]
+				id_bloco = _bloco(nome_bloco, blocos, blocos_por_nome, \
+					bancada_partido, bancada_bloco, conexao)
+				
+				executa_query('INSERT INTO orientacoes_votos (id_votacao, ' \
+					'id_bancada, orientacao) VALUES (%s, %s, %s)', \
+					(arruma_campo(id_votacao), arruma_campo(bancada_bloco[ \
+					id_bloco]), arruma_campo(orientacao)), conexao)
+			
+			for id_deputado in votacao['votos'].keys():
+				voto = votacao['votos'][id_deputado]
+				
+				executa_query('INSERT INTO votos (id_votacao, id_deputado, ' \
+					'id_partido, voto) VALUES (%s, %s, %s, %s)', \
+					(arruma_campo(id_votacao), arruma_campo(id_deputado), \
+					arruma_campo(voto, 'partido'), arruma_campo( \
+					equivalencias_voto[voto['voto']])), conexao)
+			
+			id_votacao += 1
+
+def salva_votacoes_eleicoes(conexao):
+	municipios = carrega_dados(pasta + 'municipios.pkl')
+	
+	for id_municipio in municipios.keys():
+		municipio = municipios[id_municipio]
+		
+		executa_query('INSERT INTO municipios (id_municipio, ' \
+			'id_municipio_tse, uf, nome, latitude, longitude) VALUES (%s, %s,' \
+			' %s, %s, %s, %s)', (arruma_campo(id_municipio), \
+			arruma_campo(municipio, 'cod_tse'), arruma_campo(municipio, 'uf'), \
+			arruma_campo(municipio, 'nome'), arruma_campo(municipio, \
+			'latitude'), arruma_campo(municipio, 'longitude')), conexao)
+		
+		for chave in set(municipio.keys()) - set(['cod_tse', 'uf', 'nome', \
+			'latitude', 'longitude']):
+
+			executa_query('INSERT INTO municipios_dados (id_municipio, ' \
+				'chave, valor, unidades) VALUES (%s, %s, %s, %s)', \
+				(arruma_campo(id_municipio), arruma_campo(chave), \
+				arruma_campo(municipio[chave][0]), arruma_campo( \
+				municipio[chave][1])), conexao)
+	
+	votacoes = carrega_dados(pasta + 'votacoes.pkl')
+	
+	for id_municipio in votacoes.keys():
+		votacao = votacoes[id_municipio]
+		
+		for zona in votacao.keys():
+			for id_deputado in votacao[zona].keys():
+				executa_query('INSERT INTO deputados_eleicoes_votacoes ' \
+					'(id_municipio, zona, id_deputado, id_eleicao, votos) ' \
+					'VALUES (%s, %s, %s, %s, %s)', \
+					(arruma_campo(id_municipio), arruma_campo(zona), \
+					arruma_campo(id_deputado), arruma_campo(2010), \
+					arruma_campo(votacao[zona][id_deputado])), conexao)
+
+equivalencia_frequencia = {'PRESENCA': 0, 'AUSENCIA': 1, \
+	'AUSENCIA JUSTIFICADA': 2, 'ORDEM DO DIA CANCELADA': 3, '--------': 4}
+
+def salva_sessoes(conexao):
+	reunioes = carrega_dados(pasta + 'presencas.pkl')
+	discursos = carrega_dados(pasta + 'discursos.pkl')
+	
+	codigos_sessoes = {}
+	reunioes_sessoes_falta = {}
+	reunioes_falta = set([d['data_sessao'].date() for d in discursos])
+	
+	for (data, cod) in set([(d['data_sessao'], d['cod_sessao']) for d in \
+		discursos]):
+		
+		id_sessao = int(cod.split('.')[0])
+		data = data.date()
+		
+		try:
+			codigos_sessoes[data][id_sessao] = cod
+			reunioes_sessoes_falta[data].add(id_sessao)
+		except KeyError:
+			codigos_sessoes[data] = {id_sessao: cod}
+			reunioes_sessoes_falta[data] = set([id_sessao])
+	
+	for data_reuniao in reunioes.keys():
+		reuniao = reunioes[data_reuniao]
+		
+		try:
+			reunioes_falta.remove(data_reuniao)
+		except KeyError:
+			pass
+		
+		executa_query('INSERT INTO reunioes (data_reuniao, legislatura) ' \
+			'VALUES (%s, %s)', (arruma_campo(data_reuniao), \
+			arruma_campo(reuniao, 'legislatura')), conexao)
+		
+		for descr_sessao in reuniao['sessoes'].keys():
+			id_sessao = - (hash(descr_sessao) % 1000)
+			limpa = re.sub(r'[0-9]{2}\.?\ ?\/\ ?[0-9]{2}\ ?\/\ ?[0-9]{2}' \
+				'([0-9]{2})?', '', descr_sessao)
+			partes = re.findall(r'[0-9]+', limpa)
+			
+			if len(partes) == 1:
+				id_sessao = int(partes[0])
+			
+			try:
+				reunioes_sessoes_falta[data_reuniao].remove(id_sessao)
+			except KeyError:
+				pass
+			
+			try:
+				cod_sessao = codigos_sessoes[data_reuniao][id_sessao]
+			except KeyError:
+				cod_sessao = None
+			
+			executa_query('INSERT INTO sessoes (id_sessao, reuniao, codigo, ' \
+				'inicio, descricao) VALUES (%s, %s, %s, %s, %s)', \
+				(arruma_campo(id_sessao), arruma_campo(data_reuniao), \
+				cod_sessao, arruma_campo(reuniao['sessoes'][descr_sessao], \
+				'inicio'), descr_sessao), conexao)
+		
+		for id_deputado in reuniao['deputados'].keys():
+			info_deputado = reuniao['deputados'][id_deputado]
+
+			executa_query('INSERT INTO deputados_reunioes_presencas ' \
+				'(id_deputado, data_reuniao, frequencia, justificativa, ' \
+				'presenca_externa) VALUES (%s, %s, %s, %s, %s)', \
+				(arruma_campo(id_deputado), arruma_campo(data_reuniao), \
+				arruma_campo(equivalencia_frequencia[info_deputado[ \
+				'frequencia']]), arruma_campo(info_deputado, 'justificativa'), \
+				arruma_campo(info_deputado, 'presenca_externa')), conexao)
+			
+			for descr_sessao in info_deputado['sessoes'].keys():
+				id_sessao = - (hash(descr_sessao) % 1000)
+				limpa = re.sub(r'[0-9]{2}\.?\ ?\/\ ?[0-9]{2}\ ?\/\ ?[0-9]{2}' \
+					'([0-9]{2})?', '', descr_sessao)
+				partes = re.findall(r'[0-9]+', limpa)
+			
+				if len(partes) == 1:
+					id_sessao = int(partes[0])
+				
+				executa_query('INSERT INTO deputados_sessoes_presencas ' \
+					'(id_deputado, data_reuniao, id_sessao, frequencia) ' \
+					'VALUES (%s, %s, %s, %s)', (arruma_campo(id_deputado), \
+					arruma_campo(data_reuniao), arruma_campo(id_sessao), \
+					arruma_campo(equivalencia_frequencia[info_deputado \
+					['sessoes'][descr_sessao]['presenca']])), conexao)
+	
+	fases = set([(d['cod_fase'], d['descricao_fase']) for d in discursos])
+	
+	for fase in fases:
+		executa_query('INSERT INTO fases_sessoes (cod_fase, descricao) ' \
+			'VALUES (%s, %s)', (arruma_campo(fase[0]), arruma_campo(fase[1])), \
+			conexao)
+	
+	id_discurso = 0
+	
+	for discurso in discursos:
+		id_sessao = int(discurso['cod_sessao'].split('.')[0])
+		data_sessao = discurso['data_sessao'].date()
+		
+		if data_sessao in reunioes_falta:
+			legislatura = int(54 - math.ceil((2010 - (data_sessao - \
+				datetime.timedelta(days=31)).year) / 4))
+			executa_query('INSERT INTO reunioes (data_reuniao, legislatura) ' \
+				'VALUES (%s, %s)', (arruma_campo(data_sessao), \
+				arruma_campo(legislatura)), conexao)
+			reunioes_falta.remove(data_sessao)
+		
+		if id_sessao in reunioes_sessoes_falta[data_sessao]:
+			executa_query('INSERT INTO sessoes (id_sessao, reuniao, codigo, ' \
+				'inicio, descricao) VALUES (%s, %s, %s, %s, %s)', \
+				(arruma_campo(id_sessao), arruma_campo(data_sessao), \
+				arruma_campo(discurso, 'cod_sessao'), None, None), conexao)
+			reunioes_sessoes_falta[data_sessao].remove(id_sessao)
+		
+		executa_query('INSERT INTO discursos (id_discurso, id_deputado, ' \
+			'data_reuniao, id_sessao, numero_sessao, tipo_sessao, cod_fase, ' \
+			'numero_orador, numero_quarto, numero_insercao, hora_inicio, ' \
+			'sumario, inteiro_teor) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, ' \
+			'%s, %s, %s, %s, %s)', (arruma_campo(id_discurso), \
+			arruma_campo(discurso, 'id_deputado'), data_sessao, \
+			arruma_campo(id_sessao), arruma_campo(discurso, \
+			'numero_sessao'), arruma_campo(discurso, 'tipo_sessao'), \
+			arruma_campo(discurso, 'cod_fase'), arruma_campo(discurso, \
+			'numero_orador'), arruma_campo(discurso, 'numero_quarto'), \
+			arruma_campo(discurso, 'numero_insercao'), arruma_campo(discurso, \
+			'hora_inicio'), arruma_campo(discurso, 'sumario'), \
+			arruma_campo(discurso, 'inteiro_teor')), conexao)
+		
+		id_discurso += 1
+
+def salva_reunioes_orgaos(conexao):
+	orgaos = carrega_dados(pasta + 'orgaos.pkl')
+	
+	id_reuniao_orgao = 0
+	
+	for id_orgao in orgaos.keys():
+		orgao = orgaos[id_orgao]
+		
+		if 'reunioes' not in orgao.keys():
+			continue
+		
+		for cod_reuniao in orgao['reunioes'].keys():
+			reuniao = orgao['reunioes'][cod_reuniao]
+			
+			executa_query('INSERT INTO orgaos_reunioes (id_reuniao_orgao, ' \
+				'sigla_orgao, cod_reuniao, data_hora, local, estado, tipo, ' \
+				'objeto) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', \
+				(arruma_campo(id_reuniao_orgao), arruma_campo(id_orgao), \
+				arruma_campo(cod_reuniao), arruma_campo(reuniao, 'data_hora'), \
+				arruma_campo(reuniao, 'local'), arruma_campo(reuniao, \
+				'estado'), arruma_campo(reuniao, 'tipo'), \
+				arruma_campo(reuniao, 'objeto')), conexao)
+			
+			for id_proposicao in reuniao['proposicoes']:
+				executa_query('INSERT INTO orgaos_reunioes_proposicoes \
+					(id_reuniao_orgao, id_proposicao) VALUES (%s, %s)', \
+					(arruma_campo(id_reuniao_orgao), \
+					arruma_campo(id_proposicao)), conexao)
+			
+			id_reuniao_orgao += 1
+
 conexao = MySQLdb.connect(host='localhost', user=usuario, passwd=senha, db=banco)
 
 remove = False
@@ -619,37 +1100,70 @@ if remove:
 	for query in queries_remocao:
 		executa_query(query, conexao)
 
+blocos = carrega_dados(pasta + 'blocos.pkl')
+blocos_por_nome = dict([(blocos[b]['sigla_bloco'], b) for b in blocos.keys()])
+blocos_por_nome['GOVERNO'] = blocos_por_nome['GOV'] = blocos_por_nome['Gov.']
+
 try:
-	# TODO discursos
-	"""
 	print 'Salvando apreciacoes...'
 	salva_apreciacoes(conexao)
 	
 	print 'Salvando partidos...'
 	bancada_partido, bancada_bloco = salva_partidos(conexao)
 	
-	print 'Salvando deputados...'
-	salva_deputados(conexao)
-	
-	print 'Salvando autores de proposicoes...'
-	salva_autores_proposicoes(conexao)
+	salva_dados(bancada_partido, pasta + 'bancada_partido.pkl')
+	salva_dados(bancada_bloco, pasta + 'bancada_bloco.pkl')
 	
 	print 'Salvando orgaos...'
 	salva_orgaos(conexao)
 	
-	print 'Salvando proposicões...'
-	salva_proposicoes(conexao)
-	
-	print 'Salvando dados de topicos de proposicoes...'
-	ultimo_topico = salva_proposicoes_topicos(conexao)
-	
+	print 'Salvando deputados...'
+	salva_deputados(conexao)
+
 	print 'Salvando detalhes de deputados...'
 	salva_deputados_extra(conexao, bancada_partido, bancada_bloco)
 	
-	print 'Salvando dados das eleicoes...'
+	print 'Salvando dados eleitorais dos deputados...'
 	salva_dados_eleicoes(conexao)
-	"""
-	#conexao.rollback()
+	
+	print 'Salvando autores de proposicoes...'
+	salva_autores_proposicoes(conexao)
+	conexao.commit()
+	
+	print 'Salvando proposicões...'
+	salva_proposicoes(conexao)
+	conexao.commit()
+	
+	print 'Salvando detalhes de proposicoes...'
+	salva_proposicoes_detalhes(conexao)
+	
+	print 'Salvando dados de topicos de proposicoes...'
+	ultimo_topico = salva_proposicoes_topicos(conexao)
+	conexao.commit()
+	
+	print 'Salvando detalhes de gasto da cota...'
+	latin1 = True
+	salva_despesas_cota(conexao, bancada_partido, bancada_bloco)
+	conexao.commit()
+	latin1 = False
+	
+	print 'Salvando dados de votacoes de proposicoes...'
+	salva_votacoes_proposicoes(conexao, blocos, blocos_por_nome, \
+		bancada_partido, bancada_bloco)
+	salva_dados(bancada_bloco, pasta + 'bancada_bloco.pkl')
+	salva_dados(blocos, pasta + 'blocos.pkl')
+	conexao.commit()
+	
+	print 'Salvando dados de votacoes em eleicoes...'
+	salva_votacoes_eleicoes(conexao)
+	conexao.commit()
+	
+	print 'Salvando dados de sessoes e reunioes...'
+	salva_sessoes(conexao)
+	conexao.commit()
+	
+	print 'Salvando dados de reunioes de orgaos...'
+	salva_reunioes_orgaos(conexao)
 	conexao.commit()
 except:
 	conexao.rollback()

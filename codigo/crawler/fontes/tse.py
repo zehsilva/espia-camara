@@ -31,6 +31,13 @@ ANO_ELEICAO = max(filter(lambda a: a < ANO_ATUAL, \
 
 DIR_DADOS = ""
 
+nome_tse_camara = { \
+	'LAURIETE RODRIGUES DE ALMEIDA': 'LAURIETE RODRIGUES PINTO', \
+	'SANDRO DA MABEL ANTONIO SCODRO': 'SANDRO ANTONIO SCODRO', \
+	'ROMANNA GIULIA CECCON LEANDRO REMOR': \
+	'ROMANNA GIULIA CECCON LEANDRO REMOR MARCELINO', \
+	'RICARDO IZAR JUNIOR': 'RICARDO NAGIB IZAR', \
+	'EDSON SANTOS': 'EDSON SANTOS DE SOUZA'}
 
 def get_receitas(deputados, deputados_por_nome_tse):
 	for uf in LISTA_UFS:
@@ -295,16 +302,21 @@ def get_candidatos(deputados, deputados_por_nome_completo, \
 					continue
 				
 				nome_tse = uniformiza(candidato[10])
+				nome_aux = nome_tse
 				
 				try:
-					id_deputado = deputados_por_nome_completo[nome_tse]
+					nome_aux = uniformiza(nome_tse_camara[nome_tse])
+				except KeyError:
+					pass
+				
+				try:
+					id_deputado = deputados_por_nome_completo[nome_aux]
 				except KeyError:
 					try:
 						id_deputado = deputados_por_nome_completo_na[ \
-							normaliza(nome_tse)]
+							normaliza(nome_aux)]
 					except KeyError:
-						nao_deputados[uniformiza(candidato[10])] = \
-							candidato
+						nao_deputados[nome_tse] = candidato
 						continue
 				
 				deputados_identificados.append(id_deputado)
@@ -331,9 +343,9 @@ def get_candidatos(deputados, deputados_por_nome_completo, \
 			nao_identificados = list(deputados_uf - deputados_identificados)
 			
 			for id_deputado in nao_identificados:
-				nome_deputado = uniformiza(deputados[id_deputado]["nome"])
+				nome_deputado = normaliza(deputados[id_deputado]["nome"])
 				candidato = None
-				distancia_candidato = 11
+				distancia_candidato = 9
 				mesmo_partido_candidato = False
 				
 				for nao_deputado in nao_deputados.keys():
@@ -346,20 +358,28 @@ def get_candidatos(deputados, deputados_por_nome_completo, \
 							deputados[id_deputado]["partido"]
 					
 					if distancia < distancia_candidato:
-						if candidato == None or (mesmo_partido and \
-							not mesmo_partido_candidato):
+						if (candidato == None or (mesmo_partido and \
+							not mesmo_partido_candidato)) and \
+							uf == deputados[id_deputado]['uf']:
 							
 							candidato = nao_deputados[nao_deputado]
 							distancia_candidato = distancia
 							mesmo_partido_candidato = mesmo_partido
 							nome_tse = nao_deputado
 						elif mesmo_partido and mesmo_partido_candidato:
-							raise Exception("Deputado (%s, %s) identificado " \
-								"duas vezes." % nome_deputado)
+							raise Exception("Deputado (%s) identificado duas " \
+								"vezes." % nome_deputado.encode('ascii', \
+								'ignore'))
 				
-				if candidato == None:
+				if candidato == None and 54 in deputados[id_deputado] \
+					['legislaturas']:
+					print "Deputado %s não identificado." % \
+						nome_deputado.encode('ascii', 'ignore')
+					continue
 					raise Exception("Deputado %s não identificado." % \
-						nome_deputado)
+						nome_deputado.encode('ascii', 'ignore'))
+				elif candidato == None:
+					continue
 				
 				atualiza_deputado(deputados[id_deputado], candidato)
 				deputados_por_nome_tse[nome_tse] = id_deputado
