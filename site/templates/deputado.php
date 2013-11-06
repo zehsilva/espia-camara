@@ -22,7 +22,7 @@
         //Pegando os tópicos
         $.ajax({
             type: 'GET',
-            url: '/getTopicosProposicoesDeputado/' + "<?php echo $id; ?>",
+            url: '/getTopicosProposicoesDeputado/' + "<?php echo $deputado['id']; ?>",
             dataType: "json",
             success: function(data, textStatus, jqXHR){
               if (data.length > 0){
@@ -57,7 +57,7 @@
                 }
               } else {
                 var div = document.getElementById('panel_topicos_proposicoes');
-                div.innerHTML = 'Desculpa, ainda não calculamos os tópicos desse deputado. Já estamos trabalhando nesse problema :-/';
+                div.innerHTML = 'Esse deputado ainda não fez nenhuma proposição, por isso não temos seus tópicos :-).';
               }
             },
             error: function(jqXHR, textStatus, errorThrown){
@@ -72,7 +72,7 @@
         //Pegando os tópicos
         $.ajax({
             type: 'GET',
-            url: '/getTopicosDiscursosDeputado/' + "<?php echo $id; ?>",
+            url: '/getTopicosDiscursosDeputado/' + "<?php echo $deputado['id']; ?>",
             dataType: "json", // data type of response
             success: function(data, textStatus, jqXHR){
               if (data.length > 0){
@@ -107,7 +107,7 @@
                 }
               } else {
                 var div = document.getElementById('panel_topicos_discursos');
-                div.innerHTML = 'Desculpa, não calculamos os tópicos desse deputado. Já estamos trabalhando nesse problema :-/';
+                div.innerHTML = 'Esse deputado ainda não fez nenhum discurso, por isso não temos seus tópicos :-).';
               }
             },
             error: function(jqXHR, textStatus, errorThrown){
@@ -122,10 +122,10 @@
         if ($('#map-canvas').is(':empty')){
           $.ajax({
             type: 'GET',
-            url: '/getVotosDeputado/' + <?php echo $id ?>,
+            url: '/getVotosDeputado/' + <?php echo $deputado['id'] ?>,
             dataType: "json",
             success: function(result){
-              dados = result;//jQuery.parseJSON(result);
+              dados = result;
               if (dados.length > 0){
                 var cidades = new Array();
                 for (var i = 0; i < dados.length; i++) {
@@ -158,27 +158,27 @@
 
       function carregaPresencas(){
         $.ajax({
-            type: 'POST',
-            contentType: 'application/json',
-            url: '/getPresencasDeputado/' + <?php echo $id ?>,
+            type: 'GET',
+            url: '/getPresencasDeputado/' + <?php echo $deputado['id'] ?>,
             dataType: "json",
             success: function(data, textStatus, jqXHR){
               if (data.length > 0){
-                google.load("visualization", "1", {packages:["corechart"]});
-                google.setOnLoadCallback(drawChart);
-                var options = {
-                  title: 'Quantidade de faltas em sessões por mês'
-                };
+                var div = document.getElementById('sessoes');
+                var texto = "<table class='table table-condensed'><thead><tr><th>Mês em que houveram faltas</th><th>Qtde de faltas</th></thead><tbody>";
+                for (var i = 0; i < data.length; i++) {
+                  element = data[i];
+                  texto = texto + "<tr><td>" + element['data'] + "</td><td>" + element['faltas'] + "</td></tr>";
+                }
+                var texto = texto + "</tbody></table>";
+                div.innerHTML = texto;
 
-                var chart = new google.visualization.LineChart(document.getElementById('sessoes'));
-                chart.draw(data, options);
-                alert('teste');
               } else {
                 var div = document.getElementById('sessoes');
                 div.innerHTML = 'Esse deputado está de parabéns! Segundo nossa base de dados ele ainda não faltou nenhuma vez!';
               }
             },
             error: function(jqXHR, textStatus, errorThrown){
+                alert(errorThrown);
                 var div = document.getElementById('sessoes');
                 div.innerHTML = 'Desculpa, não conseguimos recuperar as faltas desse deputado. Já estamos trabalhando nesse problema :-/';
             }
@@ -193,18 +193,18 @@
       <div class="row">
         <div class="col-sm-6 col-md-3">
           <a href="#" class="thumbnail">
-            <img src="<?php echo $url_foto;?>" alt="Deputado">
+            <img src="<?php echo $deputado['url_foto'];?>" alt="Deputado">
           </a>
         </div>
         <div class="col-md-4">
-          <h3><?php echo $nome_parlamentar;?></h3>
+          <h3><?php echo $deputado['nome_parlamentar'];?></h3>
           <dl class="dl-horizontal">
             <dt>Eleito pelo estado:</dt>
-            <dd><?php echo $uf;?></dd>
+            <dd><?php echo $deputado['uf'];?></dd>
             <dt>Eleito pelo partido:</dt>
-            <dd><?php echo $eleicao_partido;?></dd>
+            <dd><?php echo $deputado['eleicao_partido'];?></dd>
             <dt>Partido atual:</dt>
-            <dd><?php echo $partido_atual;?></dd>
+            <dd><?php echo $deputado['partido_atual'];?></dd>
           </dl>
         </div>
         <div class="col-md-4">
@@ -263,7 +263,7 @@
           </div>
           <div id="presenca_sessao" class="panel-collapse collapse">
             <div class="panel-body">
-              <div id="sessoes" style="width: 100%; height: 500px;"></div>
+              <div id="sessoes"></div>
             </div>
           </div>
         </div>
@@ -325,31 +325,31 @@
                 <div class="col-md-4">
                   <dl class="dl-horizontal">
                     <dt>Nome completo</dt>
-                    <dd><?php echo $nome_completo;?></dd>
+                    <dd><?php echo $deputado['nome_completo'];?></dd>
                     <dt>Data de nascimento:</dt>
-                    <dd><?php echo $data_nascimento;?></dd>
+                    <dd><?php echo $deputado['data_nascimento'];?></dd>
                     <dt>Profissão:</dt>
-                    <dd><?php echo $nome_profissao;?></dd>
+                    <dd><?php echo $deputado['nome_profissao'];?></dd>
                     <dt>Título eleitoral:</dt>
-                    <dd><?php echo $titulo_eleitoral;?></dd>
+                    <dd><?php echo $deputado['titulo_eleitoral'];?></dd>
                     <dt>CPF:</dt>
-                    <dd><?php echo $cpf;?></dd>
+                    <dd><?php echo $deputado['cpf'];?></dd>
                     <dt>Sexo:</dt>
-                    <dd><?php echo $sexo;?></dd>
+                    <dd><?php echo $deputado['sexo'];?></dd>
                   </dl>
                 </div>
                 <div class="col-md-4">
                   <dl class="dl-horizontal">
                     <dt>Site</dt>
-                    <dd><?php echo '<a target="_blank" href="http://www.camara.gov.br/internet/Deputado/dep_Detalhe.asp?id=' . $id . '">Página na Câmara</a>';?></dd>
+                    <dd><?php echo '<a target="_blank" href="http://www.camara.gov.br/internet/Deputado/dep_Detalhe.asp?id=' . $deputado['id'] . '">Página na Câmara</a>';?></dd>
                     <dt>E-mail</dt>
-                    <dd><?php echo $email;?></dd>
+                    <dd><?php echo $deputado['email'];?></dd>
                     <dt>Gabinete:</dt>
-                    <dd><?php echo $gabinete;?></dd>
+                    <dd><?php echo $deputado['gabinete'];?></dd>
                     <dt>Facebook:</dt>
-                    <dd><?php echo $url_facebook;?></dd>
+                    <dd><?php echo $deputado['url_facebook'];?></dd>
                     <dt>Twitter:</dt>
-                    <dd><?php echo $url_twitter;?></dd>
+                    <dd><?php echo $deputado['url_twitter'];?></dd>
                   </dl>
                 </div>
               </div>

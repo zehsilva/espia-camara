@@ -21,8 +21,9 @@
         <p>Você buscou por "<i><?php echo $query?></i>".</p>
       </div>
     </div>
-    <div class="container" style="padding-top: 50px;">
-      <?php foreach ($resultados as $deputado) {?>
+    <div class="container">
+      <?php if (sizeof($resultados) > 0){
+        foreach ($resultados as $deputado) {?>
           <div class="row panel panel-default">
             <div class="col-md-2">
               <a href="/deputado/<?php echo $deputado['id_deputado']?>">
@@ -45,7 +46,11 @@
               </dl>
             </div>
           </div>
-      <?php }?>
+        <?php }
+        } else {?>
+          <div class="alert alert-danger">Não encontramos nenhum deputado com esse termo. Por que você não procura por outro termo na caixinha ali em cima?</div>
+        <?php } ?>
+
     </div>
     <?php include('footer.php'); ?>
   </body>

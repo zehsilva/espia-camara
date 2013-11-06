@@ -16,10 +16,6 @@
       <p><a class="btn btn-default" href="/contato" role="button">View details &raquo;</a></p>
     </div>
   </div>
-
-  <hr>
-
-
   <footer>
     <p>&copy; Company 2013</p>
   </footer>

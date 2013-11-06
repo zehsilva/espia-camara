@@ -36,24 +36,9 @@ $app->get('/contato', function () use($app) {$app->render('contato.php');});
 
 //Página dinâmicas
 $app->get('/deputado/:id', function ($id) use($app) {
-        $d = getDeputado($id);
-        $app->view->setData('id', $id);
-        $app->view->setData('nome_parlamentar', $d->nome_parlamentar);
-        $app->view->setData('uf', $d->uf);
-        $app->view->setData('eleicao_partido', $d->eleicao_partido);
-        $app->view->setData('partido_atual', $d->partido_atual);
-        $app->view->setData('url_foto', $d->url_foto);
-        $app->view->setData('nome_completo', $d->nome_completo);
-        $app->view->setData('data_nascimento', $d->data_nascimento);
-        $app->view->setData('nome_profissao', $d->nome_profissao);
-        $app->view->setData('titulo_eleitoral', $d->titulo_eleitoral);
-        $app->view->setData('cpf', $d->cpf);
-        $app->view->setData('sexo', $d->sexo);
-        $app->view->setData('email', $d->email);
-        $app->view->setData('gabinete', $d->gabinete);
-        $app->view->setData('url_facebook', $d->url_facebook);
-        $app->view->setData('url_twitter', $d->url_twitter);
-
+        $deputado = getDeputado($id);
+        $deputado->id = $id;
+        $app->view->setData('deputado', get_object_vars($deputado));
         $l = getLegislaturasDeputado($id);
         $app->view->setData('mandatos', $l);
 
@@ -79,6 +64,11 @@ $app->post('/resultados', function () use($app) {
     }
 );
 
+$app->post('/topico/:topico', function ($topico) use($app) {
+
+    }
+);
+
 
 /**
  * Rotas para requisições AJAX
@@ -95,7 +85,7 @@ function getDeputado($id){
     $sql = "SELECT dep.nome_parlamentar, dep.uf,
                 dep.eleicao_partido, dep.partido_atual,
                 dep.url_foto, dep.nome_completo,
-                dep.data_nascimento, prof.nome_profissao,
+                DATE_FORMAT(dep.data_nascimento, '%d/%m/%Y') as data_nascimento, prof.nome_profissao,
                 dep.titulo_eleitoral, dep.cpf,
                 dep.sexo, dep.email, dep.gabinete,
                 dep.url_facebook, dep.url_twitter
@@ -206,9 +196,12 @@ function getVotosDeputado($id){
     echo json_encode($votos);
 }
 function getPresencasDeputado($id){
-    $sql = "SELECT dsp.data_reuniao, dsp.presenca
+    $sql = "SELECT DATE_FORMAT(dsp.data_reuniao, '%m/%Y') as 'data',
+                count(dsp.frequencia) as 'faltas'
             FROM deputados_sessoes_presencas as dsp
-            WHERE id_deputado = :id";
+            WHERE id_deputado = :id AND (dsp.frequencia = 1)
+            GROUP BY MONTH(dsp.data_reuniao)
+            ORDER BY dsp.data_reuniao desc";
     $db = getConnection();
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
@@ -223,8 +216,9 @@ function getDeputadosPorNome($query){
                 dep.titulo_eleitoral, dep.cpf,
                 dep.email
             FROM deputados AS dep
-            WHERE dep.nome_parlamentar like concat('%', :query, '%') OR
-                dep.nome_completo like concat('%', :query, '%')";
+            WHERE (dep.nome_parlamentar like concat('%', :query, '%') OR
+                dep.nome_completo like concat('%', :query, '%')) AND
+                dep.id_deputado > 1";
     $db = getConnection();
     $stmt = $db->prepare($sql);
     $stmt->bindParam("query", $query, PDO::PARAM_STR);
