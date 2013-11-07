@@ -1,4 +1,4 @@
-<div class="container">
+<div class="container" style="clear:both;">
   <div class="row">
     <div class="col-md-4">
       <h2>Sobre o projeto</h2>

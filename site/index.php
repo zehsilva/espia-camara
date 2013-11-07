@@ -6,7 +6,7 @@ require '/bdCon.php';
 \Slim\Slim::registerAutoloader();
 $app = new \Slim\Slim(array(
     //'view' => new Twig(),
-    'mode' => 'development',
+    'mode' => 'production',
 ));
 
 // Configura o modo de produção
@@ -33,6 +33,10 @@ $app->configureMode('development', function () use ($app) {
 $app->get('/', function () use($app) {$app->render('home.php');});
 $app->get('/sobre', function () use($app) {$app->render('sobre.php');});
 $app->get('/contato', function () use($app) {$app->render('contato.php');});
+$app->get('/bancadas', function () use($app) { $app->render('bancadas.php'); });
+$app->get('/sobre/biclusterizacao', function () use($app) { $app->render('bancadas.php'); });
+$app->get('/sobre/lda', function () use($app) { $app->render('bancadas.php'); });
+
 
 //Página dinâmicas
 $app->get('/deputado/:id', function ($id) use($app) {
@@ -64,10 +68,21 @@ $app->post('/resultados', function () use($app) {
     }
 );
 
-$app->post('/topico/:topico', function ($topico) use($app) {
+$app->get('/deputados?topico=:topico', function ($topico) use($app) {
 
     }
 );
+$app->get('/bancada/:id', function ($id) use($app) {
+        $deputados = getDeputadosPorBicluster($id);
+        $app->view->setData('deputados', $deputados);
+        $proposicoes = getProposicoesPorBicluster($id);
+        $app->view->setData('proposicoes', $proposicoes);
+        $app->view->setData('id', $id);
+        $app->render('bancada.php');
+    }
+);
+
+
 
 
 /**
@@ -199,7 +214,7 @@ function getPresencasDeputado($id){
     $sql = "SELECT DATE_FORMAT(dsp.data_reuniao, '%m/%Y') as 'data',
                 count(dsp.frequencia) as 'faltas'
             FROM deputados_sessoes_presencas as dsp
-            WHERE id_deputado = :id AND (dsp.frequencia = 1)
+            WHERE id_deputado = :id AND (dsp.frequencia = 1 OR dsp.frequencia = 2)
             GROUP BY MONTH(dsp.data_reuniao)
             ORDER BY dsp.data_reuniao desc";
     $db = getConnection();
@@ -226,4 +241,38 @@ function getDeputadosPorNome($query){
     $resultados = $stmt->fetchAll();
     $db = null;
     return $resultados;
+}
+function getDeputadosPorBicluster($id){
+    $sql = "SELECT dep.id_deputado, dep.nome_parlamentar, dep.uf,
+                dep.partido_atual, dep.url_foto,
+                dep.titulo_eleitoral, dep.cpf,
+                dep.email
+            FROM ml_bic_votacoes_deputados bvd,
+                deputados dep
+            WHERE bvd.id_deputado = dep.id_deputado AND
+                bvd.id_bicluster = :id";
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam("id", $id);
+    $stmt->execute();
+    $deputados = $stmt->fetchAll();
+    $db = null;
+    return $deputados;
+}
+function getProposicoesPorBicluster($id){
+    $sql = "SELECT p.id_proposicao, p.link_conteudo
+            FROM ml_bic_votacoes bv,
+                votacoes v,
+                proposicoes p
+            WHERE v.id_votacao = bv.id_votacao AND
+                p.id_proposicao = v.id_proposicao AND
+                bv.id_bicluster = :id
+            GROUP BY v.id_proposicao;";
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam("id", $id);
+    $stmt->execute();
+    $proposicoes = $stmt->fetchAll();
+    $db = null;
+    return $proposicoes;
 }
