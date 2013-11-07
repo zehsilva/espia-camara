@@ -205,6 +205,8 @@
             <dd><?php echo $deputado['eleicao_partido'];?></dd>
             <dt>Partido atual:</dt>
             <dd><?php echo $deputado['partido_atual'];?></dd>
+            <dt>Bancada:</dt>
+            <dd><a href="/bancada/<?php echo $deputado['id_bicluster']?>" target="_blank" class="btn btn-danger">Bancada <?php echo $deputado['id_bicluster'] + 1?></a></dd>
           </dl>
         </div>
         <div class="col-md-4">

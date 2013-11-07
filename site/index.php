@@ -6,10 +6,10 @@ require '/bdCon.php';
 \Slim\Slim::registerAutoloader();
 $app = new \Slim\Slim(array(
     //'view' => new Twig(),
-    'mode' => 'production',
+    'mode' => 'development',
 ));
 
-// Configura o modo de produÃ§Ã£o
+// Configura o modo de produção
 $app->configureMode('production', function () use ($app) {
     $app->config(array(
         'log.enable' => true,
@@ -26,10 +26,10 @@ $app->configureMode('development', function () use ($app) {
 });
 
 /**
- * Rotas de pÃ¡ginas
+ * Rotas de páginas
  */
 
-// PÃ¡ginas Fixas
+// Páginas Fixas
 $app->get('/', function () use($app) {$app->render('home.php');});
 $app->get('/sobre', function () use($app) {$app->render('sobre.php');});
 $app->get('/contato', function () use($app) {$app->render('contato.php');});
@@ -38,7 +38,7 @@ $app->get('/sobre/biclusterizacao', function () use($app) { $app->render('bancad
 $app->get('/sobre/lda', function () use($app) { $app->render('bancadas.php'); });
 
 
-//PÃ¡gina dinÃ¢micas
+//Página dinâmicas
 $app->get('/deputado/:id', function ($id) use($app) {
         $deputado = getDeputado($id);
         $deputado->id = $id;
@@ -86,12 +86,12 @@ $app->get('/bancada/:id', function ($id) use($app) {
 
 
 /**
- * Rotas para requisiÃ§Ãµes AJAX
+ * Rotas para requisições AJAX
   */
 $app->get('/getTopicosProposicoesDeputado/:id', 'getTopicosProposicoesDeputado'); //topicos de um deputado
 $app->get('/getTopicosDiscursosDeputado/:id', 'getTopicosDiscursosDeputado'); //topicos de um deputado
-$app->get('/getVotosDeputado/:id', 'getVotosDeputado'); //votos que um deputado recebeu na sua Ãºltima eleiÃ§Ã£o
-$app->get('/getPresencasDeputado/:id', 'getPresencasDeputado'); //presenÃ§as do deputado
+$app->get('/getVotosDeputado/:id', 'getVotosDeputado'); //votos que um deputado recebeu na sua última eleição
+$app->get('/getPresencasDeputado/:id', 'getPresencasDeputado'); //presenças do deputado
 
 
 $app->run();
@@ -103,10 +103,13 @@ function getDeputado($id){
                 DATE_FORMAT(dep.data_nascimento, '%d/%m/%Y') as data_nascimento, prof.nome_profissao,
                 dep.titulo_eleitoral, dep.cpf,
                 dep.sexo, dep.email, dep.gabinete,
-                dep.url_facebook, dep.url_twitter
+                dep.url_facebook, dep.url_twitter,
+                bvd.id_bicluster
             FROM deputados AS dep,
-                profissoes AS prof
+                profissoes AS prof,
+                ml_bic_votacoes_deputados AS bvd
             WHERE dep.id_deputado = :id AND
+                dep.id_deputado = bvd.id_deputado AND
                 prof.id_profissao = dep.profissao";
     $db = getConnection();
     $stmt = $db->prepare($sql);
