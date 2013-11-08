@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Deputado Mining - Sobre</title>
+    <title>Deputado Mining - Bancada <?php echo $id+1?> - Deputados e Proposições</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Bootstrap -->
     <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
-
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
@@ -15,11 +13,9 @@
   </head>
   <body>
     <?php include 'navbar.php';?>
-
-
     <div class="jumbotron">
       <div class="container">
-        <h2>Bancada <?php echo $id?></h2>
+        <h2>Bancada <?php echo $id+1?></h2>
         <p>Essa bancada foi descoberta utilizando técnicas de inteligência artificial. Os deputados abaixo votaram de forma muito semelhante nas proposições descritas.</p>
         <a class="btn btn-primary btn-lg" role="button" href="/sobre/biclusterizacao">Saiba mais sobre como descobrimos as bancadas &raquo;</a>
       </div>
@@ -74,7 +70,7 @@
                   <tr>
                     <td><?php echo $i ?></td>
                     <td><a href="<?php echo $proposicao['link_conteudo'] ?>" target="_blank">Conteúdo da proposição</a></td>
-                    <td>ainda não carregamos</td>
+                    <td><?php echo $proposicao['topicos'] ?></td>
                   </tr>
                   <?php $i = $i+1;
                  }?>
@@ -86,6 +82,7 @@
         </div>
       <div>
     </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
     <?php include('footer.php');?>
   </body>
 </html>

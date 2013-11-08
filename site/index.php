@@ -6,7 +6,7 @@ require '/bdCon.php';
 \Slim\Slim::registerAutoloader();
 $app = new \Slim\Slim(array(
     //'view' => new Twig(),
-    'mode' => 'development',
+    'mode' => 'production',
 ));
 
 // Configura o modo de produção
@@ -30,34 +30,16 @@ $app->configureMode('development', function () use ($app) {
  */
 
 // Páginas Fixas
-$app->get('/', function () use($app) {$app->render('home.php');});
+$app->get('/', function () use($app) { $app->render('home.php'); });
 $app->get('/sobre', function () use($app) {$app->render('sobre.php');});
 $app->get('/contato', function () use($app) {$app->render('contato.php');});
 $app->get('/bancadas', function () use($app) { $app->render('bancadas.php'); });
 $app->get('/sobre/biclusterizacao', function () use($app) { $app->render('bancadas.php'); });
 $app->get('/sobre/lda', function () use($app) { $app->render('bancadas.php'); });
-
+$app->notFound(function () use ($app) { $app->render('404.php'); });
 
 //Página dinâmicas
-$app->get('/deputado/:id', function ($id) use($app) {
-        $deputado = getDeputado($id);
-        $deputado->id = $id;
-        $app->view->setData('deputado', get_object_vars($deputado));
-        $l = getLegislaturasDeputado($id);
-        $app->view->setData('mandatos', $l);
 
-        $trocas = getTrocasPartidoDeputado($id);
-        $app->view->setData('trocas', $trocas);
-        $app->render('deputado.php');
-    }
-);
-
-$app->get('/topicos', function () use($app) {
-        $d = getTopicosHome();
-        $app->view->setData('dados', $d);
-        $app->render('topicos.php');
-    }
-);
 
 $app->post('/resultados', function () use($app) {
         $parametros = $app->request()->params();
@@ -67,9 +49,22 @@ $app->post('/resultados', function () use($app) {
         $app->render('resultados.php');
     }
 );
-
-$app->get('/deputados?topico=:topico', function ($topico) use($app) {
-
+$app->get('/deputado/:id', function ($id) use($app) {
+        $deputado = getDeputado($id);
+        $deputado->id = $id;
+        $bic = getBiclusterIdPorDeputado($id);
+        // se for falso
+        if (!$bic){
+            $deputado->id_bicluster = false;
+        } else {
+            $deputado->id_bicluster = $bic->id_bicluster;
+        }
+        $app->view->setData('deputado', get_object_vars($deputado));
+        $l = getLegislaturasDeputado($id);
+        $app->view->setData('mandatos', $l);
+        $trocas = getTrocasPartidoDeputado($id);
+        $app->view->setData('trocas', $trocas);
+        $app->render('deputado.php');
     }
 );
 $app->get('/bancada/:id', function ($id) use($app) {
@@ -81,18 +76,26 @@ $app->get('/bancada/:id', function ($id) use($app) {
         $app->render('bancada.php');
     }
 );
-
-
-
+$app->get('/topico/:id', function ($id) use($app) {
+        $app->view->setData('id', $id);
+        $palavras = getPalavrasTopico($id);
+        $app->view->setData('palavras', $palavras);
+        $deputadosProp = getDeputadosTopicoProposicao($id);
+        $app->view->setData('deputadosProp', $deputadosProp);
+        $deputadosDisc = getDeputadosTopicoDiscurso($id);
+        $app->view->setData('deputadosDisc', $deputadosDisc);
+        $app->render('topico.php');
+    }
+);
 
 /**
  * Rotas para requisições AJAX
-  */
+ */
 $app->get('/getTopicosProposicoesDeputado/:id', 'getTopicosProposicoesDeputado'); //topicos de um deputado
 $app->get('/getTopicosDiscursosDeputado/:id', 'getTopicosDiscursosDeputado'); //topicos de um deputado
 $app->get('/getVotosDeputado/:id', 'getVotosDeputado'); //votos que um deputado recebeu na sua última eleição
 $app->get('/getPresencasDeputado/:id', 'getPresencasDeputado'); //presenças do deputado
-
+$app->get('/getTopicosHome', 'getTopicosHome');
 
 $app->run();
 
@@ -103,13 +106,10 @@ function getDeputado($id){
                 DATE_FORMAT(dep.data_nascimento, '%d/%m/%Y') as data_nascimento, prof.nome_profissao,
                 dep.titulo_eleitoral, dep.cpf,
                 dep.sexo, dep.email, dep.gabinete,
-                dep.url_facebook, dep.url_twitter,
-                bvd.id_bicluster
+                dep.url_facebook, dep.url_twitter
             FROM deputados AS dep,
-                profissoes AS prof,
-                ml_bic_votacoes_deputados AS bvd
+                profissoes AS prof
             WHERE dep.id_deputado = :id AND
-                dep.id_deputado = bvd.id_deputado AND
                 prof.id_profissao = dep.profissao";
     $db = getConnection();
     $stmt = $db->prepare($sql);
@@ -118,6 +118,18 @@ function getDeputado($id){
     $deputado = $stmt->fetchObject();
     $db = null;
     return $deputado;
+}
+function getBiclusterIdPorDeputado($id){
+    $sql = "SELECT id_bicluster
+            FROM ml_bic_votacoes_deputados
+            WHERE id_deputado = :id";
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam("id", $id);
+    $stmt->execute();
+    $bicid = $stmt->fetchObject();
+    $db = null;
+    return $bicid;
 }
 function getLegislaturasDeputado($id){
     $sql = "SELECT dl.ano_inicio
@@ -148,21 +160,24 @@ function getTrocasPartidoDeputado($id){
     return $res;
 }
 function getTopicosHome(){
-    $sql = "SELECT tp.id_topico, tp.peso,
-                GROUP_CONCAT(tpl.palavra) as palavra
-            FROM ml_topicos as tp, ml_topicos_palavras as tpl
+    $sql = "SELECT tpl.palavra AS 'text', tp.peso * 9 + 20 AS 'size',
+                tp.id_topico AS 'id'
+            FROM ml_topicos AS tp,
+                ml_topicos_palavras AS tpl
             WHERE tpl.id_topico = tp.id_topico
-            GROUP BY tp.id_topico";
+            GROUP BY tpl.palavra
+            ORDER BY tp.peso DESC
+            LIMIT 200";
     $db = getConnection();
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
     $stmt->execute();
-    $deputado = $stmt->fetchAll();
+    $topicos = $stmt->fetchAll();
     $db = null;
-    return $deputado;
+    echo json_encode($topicos);
 }
 function getTopicosProposicoesDeputado($id){
-    $sql = "SELECT TP.palavra, TP.peso, T.id_topico
+    $sql = "SELECT TP.palavra as 'text', sum(TP.peso) * 9 + 20 as 'size', T.id_topico as 'id'
             FROM ml_topicos_palavras AS TP,
                 ml_topicos AS T,
                 ml_proposicoes_topicos AS PT,
@@ -172,7 +187,10 @@ function getTopicosProposicoesDeputado($id){
                 PT.id_topico = T.id_topico and
                 P.id_proposicao = PT.id_proposicao and
                 AP.id_autor = P.autor1 and
-                AP.id_deputado = :id";
+                AP.id_deputado = :id
+            GROUP BY TP.palavra
+            ORDER BY TP.peso DESC
+            LIMIT 50";
     $db = getConnection();
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
@@ -182,15 +200,18 @@ function getTopicosProposicoesDeputado($id){
     echo json_encode($topicos);
 }
 function getTopicosDiscursosDeputado($id){
-    $sql = "SELECT TP.palavra, TP.peso, T.id_topico
-            FROM ml_topicos_palavras AS TP,
-                ml_topicos AS T,
-                ml_discursos_topicos AS DT,
-                discursos AS D
-            WHERE T.id_topico = TP.id_topico and
-                DT.id_topico = T.id_topico and
-                D.id_discurso = DT.id_discurso and
-                D.id_deputado = :id";
+    $sql = "SELECT TP.palavra as 'text', sum(TP.peso) * 9 + 20 as 'size', TP.id_topico as 'id'
+    FROM ml_topicos_palavras AS TP,
+        ml_topicos AS T,
+        ml_discursos_topicos AS DT,
+        discursos AS D
+    WHERE T.id_topico = TP.id_topico and
+        DT.id_topico = T.id_topico and
+        D.id_discurso = DT.id_discurso and
+        D.id_deputado = :id
+    GROUP BY TP.palavra
+    ORDER BY TP.peso DESC
+    LIMIT 150";
     $db = getConnection();
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
@@ -263,19 +284,91 @@ function getDeputadosPorBicluster($id){
     return $deputados;
 }
 function getProposicoesPorBicluster($id){
-    $sql = "SELECT p.id_proposicao, p.link_conteudo
+    $setsize = "SET SESSION group_concat_max_len = 35";
+    $sql = "SELECT p.id_proposicao, p.link_conteudo,
+                group_concat(tp.palavra separator ',') as 'topicos'
             FROM ml_bic_votacoes bv,
                 votacoes v,
-                proposicoes p
+                proposicoes p,
+                ml_proposicoes_topicos pt,
+                ml_topicos as t,
+                ml_topicos_palavras as tp
             WHERE v.id_votacao = bv.id_votacao AND
                 p.id_proposicao = v.id_proposicao AND
+                p.id_proposicao = pt.id_proposicao AND
+                pt.id_topico = t.id_topico AND
+                t.id_topico = tp.id_topico AND
                 bv.id_bicluster = :id
-            GROUP BY v.id_proposicao;";
+            GROUP BY v.id_proposicao
+            ORDER BY pt.peso, v.id_proposicao";
     $db = getConnection();
+    $stmt = $db->prepare($setsize);
+    $stmt->execute();
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
     $stmt->execute();
     $proposicoes = $stmt->fetchAll();
     $db = null;
     return $proposicoes;
+}
+function getPalavrasTopico($id){
+    $sql = "SELECT CONVERT(palavra USING latin1) as 'palavra'
+            FROM ml_topicos_palavras
+            WHERE id_topico = :id
+            ORDER BY peso DESC";
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam("id", $id);
+    $stmt->execute();
+    $resultados = $stmt->fetchAll();
+    $db = null;
+    return $resultados;
+}
+function getDeputadosTopicoProposicao($id){
+    $sql = "SELECT dep.id_deputado, dep.nome_parlamentar, dep.uf,
+                dep.partido_atual, dep.url_foto,
+                dep.titulo_eleitoral, dep.cpf,
+                dep.email, pt.peso
+            FROM ml_proposicoes_topicos AS pt,
+                proposicoes p,
+                autores_proposicoes ap,
+                deputados dep
+            WHERE pt.id_proposicao = p.id_proposicao AND
+                p.autor1 = ap.id_autor AND
+                ap.id_deputado = dep.id_deputado AND
+                dep.id_deputado > 0 AND
+                pt.id_topico = :id
+            GROUP BY dep.id_deputado
+            ORDER BY pt.peso DESC
+            LIMIT 10";
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam("id", $id);
+    $stmt->execute();
+    $deputadosProp = $stmt->fetchAll();
+    $db = null;
+    return $deputadosProp;
+}
+function getDeputadosTopicoDiscurso($id){
+    $sql = "SELECT dep.id_deputado, dep.nome_parlamentar, dep.uf,
+                dep.partido_atual, dep.url_foto,
+                dep.titulo_eleitoral, dep.cpf,
+                dep.email, dt.peso
+            FROM ml_discursos_topicos dt,
+                discursos dis,
+                deputados dep
+            WHERE dt.id_discurso = dis.id_discurso AND
+                dis.id_deputado = dep.id_deputado AND
+                dep.id_deputado > 0 AND
+                dt.id_topico = :id
+            GROUP BY dep.id_deputado
+            ORDER BY dt.peso DESC
+            LIMIT 10";
+    $db = getConnection();
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam("id", $id);
+    $stmt->execute();
+    $deputadosDisc = $stmt->fetchAll();
+    $db = null;
+    return $deputadosDisc;
 }

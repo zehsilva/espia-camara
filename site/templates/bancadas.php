@@ -3,9 +3,7 @@
   <head>
     <title>Deputado Mining - Bancadas Ocultas</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Bootstrap -->
     <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
-
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
@@ -15,17 +13,13 @@
   </head>
   <body>
     <?php include 'navbar.php';?>
-
-
     <div class="jumbotron">
       <div class="container">
         <h2>Bancadas Ocultas</h2>
         <p>Essas bancadas foram descobertas utilizando técnicas de inteligência artificial. Descobrimos 15 bancadas de forma automática. Escolha uma abaixo e veja os detalhes.</p>
         <a class="btn btn-primary btn-lg" role="button" href="/sobre/biclusterizacao">Saiba mais sobre como descobrimos as bancadas &raquo;</a>
-
       </div>
     </div>
-
     <div class="container">
       <div class="row">
         <div class="col-md-4">
@@ -203,7 +197,7 @@
         </div>
       </div>
     </div>
-
+    <script src="https://code.jquery.com/jquery.js"></script>
     <?php include('footer.php');?>
   </body>
 </html>

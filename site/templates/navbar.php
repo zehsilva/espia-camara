@@ -11,6 +11,6 @@
         </div>
         <button type="submit" class="btn btn-success">Pesquise um deputado</button>
       </form>
-    </div><!--/.navbar-collapse -->
+    </div>
   </div>
 </div>

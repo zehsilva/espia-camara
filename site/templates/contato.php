@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Deputado Mining - Sobre</title>
+    <title>Deputado Mining - Sobre o Site</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
     <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
@@ -14,25 +14,21 @@
     <![endif]-->
   </head>
   <body>
-    <div class="navbar navbar-inverse navbar-fixed-top">
+    <?php include 'navbar.php';?>
+    <div class="jumbotron">
       <div class="container">
-        <div class="navbar-header">
-          <a class="navbar-brand" href="/">Deputado Mining</a>
-        </div>
-        <div class="navbar-collapse collapse">
-          <form class="navbar-form navbar-right">
-            <div class="form-group">
-              <input type="text" placeholder="Nome do deputado" class="form-control">
-            </div>
-            <button type="submit" class="btn btn-success">Pesquise um deputado</button>
-          </form>
-        </div><!--/.navbar-collapse -->
+        <h2>Entre em contato!</h2>
+        <p>Se você está com alguma dúvida sobre os métodos utilizados no site ou deseja ajudar de alguma forma, entre em contato!</p>
+
       </div>
     </div>
-
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <div class="container">
+      <iframe src="https://docs.google.com/forms/d/1B_r4QpiQGgGGUt79EtRGEQepqQmJAC8m8jLmJhmWa3w/viewform?embedded=true"
+        width="760" height="500" frameborder="0" marginheight="0" marginwidth="0">
+        <img src="/img/loading.gif" width="100px" style="display: block; margin-left: auto; margin-right: auto;"/>
+      </iframe>
+    </div>
     <script src="https://code.jquery.com/jquery.js"></script>
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.1/js/bootstrap.min.js"></script>
+    <?php include('footer.php');?>
   </body>
 </html>
