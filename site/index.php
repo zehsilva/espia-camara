@@ -1,7 +1,7 @@
 <?php
 require 'Slim/Slim.php';
 require 'Slim/View.php';
-require '/bdCon.php';
+require 'bdCon.php';
 
 \Slim\Slim::registerAutoloader();
 $app = new \Slim\Slim(array(
@@ -170,9 +170,11 @@ function getTopicosHome(){
             LIMIT 200";
     $db = getConnection();
     $stmt = $db->prepare($sql);
+    $db->exec('SET character_set_results =utf8');
     $stmt->bindParam("id", $id);
     $stmt->execute();
     $topicos = $stmt->fetchAll();
+    $db->exec('SET character_set_results = latin1');
     $db = null;
     echo json_encode($topicos);
 }
@@ -192,6 +194,7 @@ function getTopicosProposicoesDeputado($id){
             ORDER BY TP.peso DESC
             LIMIT 50";
     $db = getConnection();
+	$db->exec('SET character_set_results = utf8');
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
     $stmt->execute();
@@ -213,6 +216,7 @@ function getTopicosDiscursosDeputado($id){
     ORDER BY TP.peso DESC
     LIMIT 150";
     $db = getConnection();
+$db->exec('SET character_set_results = utf8');
     $stmt = $db->prepare($sql);
     $stmt->bindParam("id", $id);
     $stmt->execute();
@@ -285,7 +289,7 @@ function getDeputadosPorBicluster($id){
 }
 function getProposicoesPorBicluster($id){
     $setsize = "SET SESSION group_concat_max_len = 35";
-    $sql = "SELECT p.id_proposicao, p.link_conteudo,
+    $sql = "SELECT p.id_proposicao, p.link_conteudo,p.nome,
                 group_concat(tp.palavra separator ',') as 'topicos'
             FROM ml_bic_votacoes bv,
                 votacoes v,
@@ -300,11 +304,30 @@ function getProposicoesPorBicluster($id){
                 t.id_topico = tp.id_topico AND
                 bv.id_bicluster = :id
             GROUP BY v.id_proposicao
-            ORDER BY pt.peso, v.id_proposicao";
+            ORDER BY v.id_proposicao, pt.peso, tp.peso";
+    $novosql = "select x.*, group_concat(x.palavra separator ',') as 'topicos'
+from 
+(select dd.* , max(tp.peso), tp.palavra
+from ml_topicos_palavras as tp,
+(SELECT p.id_proposicao, p.link_conteudo,p.nome,t.id_topico
+FROM ml_bic_votacoes bv,
+votacoes v,
+proposicoes p,
+ml_proposicoes_topicos pt,
+ml_topicos as t
+WHERE v.id_votacao = bv.id_votacao AND
+      p.id_proposicao = v.id_proposicao AND
+      p.id_proposicao = pt.id_proposicao AND
+      pt.id_topico = t.id_topico AND
+      bv.id_bicluster = :id
+order by pt.peso desc) as dd
+where dd.id_topico=tp.id_topico
+group by tp.id_topico) as x
+group by x.id_proposicao";
     $db = getConnection();
     $stmt = $db->prepare($setsize);
     $stmt->execute();
-    $stmt = $db->prepare($sql);
+    $stmt = $db->prepare($novosql);
     $stmt->bindParam("id", $id);
     $stmt->execute();
     $proposicoes = $stmt->fetchAll();
