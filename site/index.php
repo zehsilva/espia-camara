@@ -34,13 +34,11 @@ $app->get('/', function () use($app) { $app->render('home.php'); });
 $app->get('/sobre', function () use($app) {$app->render('sobre.php');});
 $app->get('/contato', function () use($app) {$app->render('contato.php');});
 $app->get('/bancadas', function () use($app) { $app->render('bancadas.php'); });
-$app->get('/sobre/biclusterizacao', function () use($app) { $app->render('bancadas.php'); });
+$app->get('/sobre/biclusterizacao', function () use($app) { $app->render('biclusterizacao.php'); });
 $app->get('/sobre/lda', function () use($app) { $app->render('bancadas.php'); });
 $app->notFound(function () use ($app) { $app->render('404.php'); });
 
 //Página dinâmicas
-
-
 $app->post('/resultados', function () use($app) {
         $parametros = $app->request()->params();
         $query = $parametros['query'];
