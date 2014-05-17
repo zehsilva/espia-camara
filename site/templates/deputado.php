@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>EspiaCâmara</title>
+    <title>EspiaCâmara - Perfil de <?php echo($deputado['nome_parlamentar'])?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Bootstrap -->
     <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -13,112 +12,96 @@
     <![endif]-->
     <script src="../lib/d3/d3.js"></script>
     <script src="../d3.layout.cloud.js"></script>
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://code.jquery.com/jquery.js"></script>
-    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script>
       function carregaTopicosProposicoes(){
-        var fill = d3.scale.category20();
-        //Pegando os tópicos
-        $.ajax({
-            type: 'GET',
-            url: '/getTopicosProposicoesDeputado/' + "<?php echo $deputado['id']; ?>",
-            dataType: "json",
-            success: function(data, textStatus, jqXHR){
-              if (data.length > 0){
-                d3.layout.cloud().size([300, 300])
-                    .words(jQuery.parseJSON(data))
-                    .padding(5)
-                    .rotate(function() { return ~~(Math.random() * 2) * 90; })
-                    .font("Impact")
-                    .fontSize(function(d) { return d.size; })
-                    .on("end", draw)
-                    .start();
+        if ($('#panel_topicos_proposicoes').is(':empty')){
+          $.getJSON("/getTopicosProposicoesDeputado/<?php echo $deputado['id']?>", function( data ) {
+            if (data.length > 0){
+              var fill = d3.scale.category20();
+              var h = 300; var halfH = 150;
+              var w = $('#panel_topicos_proposicoes').width(); var halfW = Math.round(w/2);
+              var t = "translate(" + halfW.toString() + "," + (halfH).toString() + ")";
+              d3.layout.cloud().size([w, h])
+                  .words(data)
+                  .padding(5)
+                  .rotate(function() { return ~~(Math.random() * 2) * 90; })
+                  .font("Impact")
+                  .fontSize(function(d) { return d.size; })
+                  .on("end", function(words){
+                    $('#msg_topicos_proposicoes').empty();
+                    d3.select("#panel_topicos_proposicoes").append("svg")
+                            .attr("width", w)
+                            .attr("height", h)
+                          .append("g")
+                            .attr("transform", t)
+                          .selectAll("text")
+                            .data(words)
+                          .enter().append("text")
+                            .style("font-size", function(d) { return d.size + "px"; })
+                            .style("font-family", "Impact")
+                            .style("fill", function(d, i) { return fill(i); })
+                            .attr("text-anchor", "middle")
+                            .attr("transform", function(d) {
+                              return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
+                            })
+                            .append("a").attr("xlink:href", function(d) {return "/topico/" + d.id;})
+                            .text(function(d) { return d.text; });
+                  })
+                  .start();
 
-                function draw(words) {
-                  d3.select("#topicos_proposicoes").append("svg")
-                      .attr("width", 300)
-                      .attr("height", 300)
-                    .append("g")
-                      .attr("transform", "translate(150,150)")
-                    .selectAll("text")
-                      .data(words)
-                    .enter().append("text")
-                      .style("font-size", function(d) { return d.size + "px"; })
-                      .style("font-family", "Impact")
-                      .style("fill", function(d, i) { return fill(i); })
-                      .attr("text-anchor", "middle")
-                      .attr("transform", function(d) {
-                        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
-                      })
-                      .append("a")
-                        .attr("xlink:href", function(d) {return "/topico/" + d.text + "/proposicoes";})
-                      .text(function(d) { return d.text; });
-                }
-              } else {
-                var div = document.getElementById('panel_topicos_proposicoes');
-                div.innerHTML = 'Esse deputado ainda não fez nenhuma proposição, por isso não temos seus tópicos :-).';
-              }
-            },
-            error: function(jqXHR, textStatus, errorThrown){
-              var div = document.getElementById('panel_topicos_proposicoes');
-              div.innerHTML = 'Desculpa, não conseguimos recuperar os tópicos desse deputado. Já estamos trabalhando nesse problema :-/';
-            }
-        });
+            } else {
+              var div = document.getElementById('msg_topicos_proposicoes');
+              div.innerHTML = 'Esse deputado ainda não fez nenhuma proposição, por isso não temos seus tópicos :-).';
+            }
+          });
+        }
       }
-
       function carregaTopicosDiscursos(){
-        var fill = d3.scale.category20();
-        //Pegando os tópicos
-        $.ajax({
-            type: 'GET',
-            url: '/getTopicosDiscursosDeputado/' + "<?php echo $deputado['id']; ?>",
-            dataType: "json", // data type of response
-            success: function(data, textStatus, jqXHR){
-              if (data.length > 0){
-                d3.layout.cloud().size([300, 300])
-                    .words(jQuery.parseJSON(data))
-                    .padding(5)
-                    .rotate(function() { return ~~(Math.random() * 2) * 90; })
-                    .font("Impact")
-                    .fontSize(function(d) { return d.size; })
-                    .on("end", draw)
-                    .start();
+        if ($('#panel_topicos_discursos').is(':empty')){
+          $.getJSON("/getTopicosDiscursosDeputado/<?php echo $deputado['id']?>", function( data ) {
+            if (data.length > 0){
+              var fill = d3.scale.category20();
+              var h = 300; var halfH = 150;
+              var w = $('#panel_topicos_discursos').width(); var halfW = Math.round(w/2);
+              var t = "translate(" + halfW.toString() + "," + (halfH).toString() + ")";
+              d3.layout.cloud().size([w, h])
+                  .words(data)
+                  .padding(5)
+                  .rotate(function() { return ~~(Math.random() * 2) * 90; })
+                  .font("Impact")
+                  .fontSize(function(d) { return d.size; })
+                  .on("end", function(words){
+                    $('#msg_topicos_discursos').empty();
+                    d3.select("#panel_topicos_discursos").append("svg")
+                            .attr("width", w)
+                            .attr("height", h)
+                          .append("g")
+                            .attr("transform", t)
+                          .selectAll("text")
+                            .data(words)
+                          .enter().append("text")
+                            .style("font-size", function(d) { return d.size + "px"; })
+                            .style("font-family", "Impact")
+                            .style("fill", function(d, i) { return fill(i); })
+                            .attr("text-anchor", "middle")
+                            .attr("transform", function(d) {
+                              return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
+                            })
+                            .append("a")
+                              .attr("xlink:href", function(d) {return "/topico/" + d.id;})
+                            .text(function(d) { return d.text; });
+                  })
+                  .start();
 
-                function draw(words) {
-                  d3.select("#topicos_proposicoes").append("svg")
-                      .attr("width", 300)
-                      .attr("height", 300)
-                    .append("g")
-                      .attr("transform", "translate(150,150)")
-                    .selectAll("text")
-                      .data(words)
-                    .enter().append("text")
-                      .style("font-size", function(d) { return d.size + "px"; })
-                      .style("font-family", "Impact")
-                      .style("fill", function(d, i) { return fill(i); })
-                      .attr("text-anchor", "middle")
-                      .attr("transform", function(d) {
-                        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
-                      })
-                      .append("a")
-                        .attr("xlink:href", function(d) {return "/topico/" + d.text + "/discursos";})
-                      .text(function(d) { return d.text; });
-                }
-              } else {
-                var div = document.getElementById('panel_topicos_discursos');
-                div.innerHTML = 'Esse deputado ainda não fez nenhum discurso, por isso não temos seus tópicos :-).';
-              }
-            },
-            error: function(jqXHR, textStatus, errorThrown){
-              var div = document.getElementById('panel_topicos_discursos');
-              div.innerHTML = 'Desculpa, não conseguimos recuperar os tópicos desse deputado. Já estamos trabalhando nesse problema :-/';
-            }
-        });
+            } else {
+              var div = document.getElementById('msg_topicos_discursos');
+              div.innerHTML = 'Esse deputado ainda não fez nenhum discurso, por isso não temos seus tópicos :-).';
+            }
+          });
+        }
       }
-
       function carregaVotosDeputado(){
-        var div = document.getElementById('map-canvas');
         if ($('#map-canvas').is(':empty')){
           $.ajax({
             type: 'GET',
@@ -126,6 +109,7 @@
             dataType: "json",
             success: function(result){
               dados = result;
+              $('#loading').empty();
               if (dados.length > 0){
                 var cidades = new Array();
                 for (var i = 0; i < dados.length; i++) {
@@ -155,7 +139,6 @@
           });
         }
       }
-
       function carregaPresencas(){
         $.ajax({
             type: 'GET',
@@ -188,13 +171,10 @@
   </head>
   <body>
     <?php include 'navbar.php';?>
-
     <div class="container" style="padding-top: 60px;">
       <div class="row">
         <div class="col-sm-6 col-md-3">
-          <a href="#" class="thumbnail">
-            <img src="<?php echo $deputado['url_foto'];?>" alt="Deputado">
-          </a>
+          <img src="<?php echo $deputado['url_foto'];?>" alt="Deputado" class="thumbnail">
         </div>
         <div class="col-md-4">
           <h3><?php echo $deputado['nome_parlamentar'];?></h3>
@@ -205,6 +185,15 @@
             <dd><?php echo $deputado['eleicao_partido'];?></dd>
             <dt>Partido atual:</dt>
             <dd><?php echo $deputado['partido_atual'];?></dd>
+              <?php if ($deputado['id_bicluster']) { ?>
+                <dt>Bancada:</dt>
+                  <dd>
+                    <a href="/bancada/<?php echo $deputado['id_bicluster']?>"
+                      target="_blank" class="btn btn-danger">
+                      Bancada <?php echo $deputado['id_bicluster'] + 1?>
+                    </a>
+              <?php }?>
+            </dd>
           </dl>
         </div>
         <div class="col-md-4">
@@ -222,7 +211,6 @@
         </div>
       </div>
     </div>
-
     <div class="container">
       <div class="panel-group" id="accordion">
         <div class="panel panel-default">
@@ -234,8 +222,12 @@
             </h2>
           </div>
           <div id="topicos_proposicoes" class="panel-collapse collapse">
-            <div class="panel-body" id="panel_topicos_proposicoes">
-              <p>Clique em um tópico para ver os deputados semelhantes:</p>
+            <div class="panel-body">
+              <p>Clique em um tópico para ver outros deputados relacionados.</p>
+              <div  id="msg_topicos_proposicoes">
+                <img src="/img/loading.gif" width="100px" style="display: block; margin-left: auto; margin-right: auto;"/>
+              </div>
+              <div  id="panel_topicos_proposicoes"></div>
             </div>
           </div>
         </div>
@@ -248,8 +240,12 @@
             </h2>
           </div>
           <div id="topicos_discursos" class="panel-collapse collapse">
-            <div class="panel-body" id="panel_topicos_discursos">
-              <p>Clique em um tópico para ver os deputados semelhantes:</p>
+            <div class="panel-body">
+              <p>Clique em um tópico para ver outros deputados relacionados.</p>
+              <div id="msg_topicos_discursos">
+                <img src="/img/loading.gif" width="100px" style="display: block; margin-left: auto; margin-right: auto;"/>
+              </div>
+              <div  id="panel_topicos_discursos"></div>
             </div>
           </div>
         </div>
@@ -263,7 +259,9 @@
           </div>
           <div id="presenca_sessao" class="panel-collapse collapse">
             <div class="panel-body">
-              <div id="sessoes"></div>
+              <div id="sessoes">
+                <img src="/img/loading.gif" width="100px" style="display: block; margin-left: auto; margin-right: auto;"/>
+              </div>
             </div>
           </div>
         </div>
@@ -278,6 +276,7 @@
           <div id="quem_votou" class="panel-collapse collapse">
             <div class="panel-body">
               <p>Aguarde o mapa carregar. Os pontos mais vermelhos indicam maior quantidade de votos.</p>
+              <div id="loading"><img src="/img/loading.gif" width="100px" style="display: block; margin-left: auto; margin-right: auto;"/></div>
               <div id="map-canvas" style="width:100%; height:400px; align: center;"></div>
             </div>
           </div>
@@ -322,7 +321,7 @@
           <div id="info_contato" class="panel-collapse collapse">
             <div class="panel-body">
               <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <dl class="dl-horizontal">
                     <dt>Nome completo</dt>
                     <dd><?php echo $deputado['nome_completo'];?></dd>
@@ -338,7 +337,7 @@
                     <dd><?php echo $deputado['sexo'];?></dd>
                   </dl>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <dl class="dl-horizontal">
                     <dt>Site</dt>
                     <dd><?php echo '<a target="_blank" href="http://www.camara.gov.br/internet/Deputado/dep_Detalhe.asp?id=' . $deputado['id'] . '">Página na Câmara</a>';?></dd>
@@ -357,7 +356,6 @@
           </div>
         </div>
       </div>
-
     </div>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=visualization"></script>
     <?php include('footer.php');?>

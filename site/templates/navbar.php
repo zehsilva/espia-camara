@@ -2,6 +2,7 @@
   <div class="container">
     <div class="navbar-header">
       <a class="navbar-brand" href="/">Home</a>
+      <a class="navbar-brand" href="/bancadas">Bancadas</a>
     </div>
     <div class="navbar-collapse collapse">
       <form class="navbar-form navbar-right" action="/resultados" method="post">
@@ -10,6 +11,6 @@
         </div>
         <button type="submit" class="btn btn-success">Pesquise um deputado</button>
       </form>
-    </div><!--/.navbar-collapse -->
+    </div>
   </div>
 </div>

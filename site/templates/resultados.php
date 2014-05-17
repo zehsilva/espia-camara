@@ -50,8 +50,8 @@
         } else {?>
           <div class="alert alert-danger">Não encontramos nenhum deputado com esse termo. Por que você não procura por outro termo na caixinha ali em cima?</div>
         <?php } ?>
-
     </div>
+    <script src="https://code.jquery.com/jquery.js"></script>
     <?php include('footer.php'); ?>
   </body>
 </html>

@@ -17,9 +17,8 @@
     <?php include 'navbar.php';?>
     <div class="jumbotron">
       <div class="container">
-        <h2>Sobre o Projeto</h2>
-        <p>Veja os tópicos que o seu deputado estadual demonstra mais interesse em suas proposições e discursos na câmara.
-          A detecção de tópicos foi feita com algoritmos ultra-avançados em mineração de textos.</p>
+        <h2>Ops, página não encontrada!</h2>
+        <p>Esse endereço não existe. Você pode procurar por um deputado utilizando a caixa de busca acima ou entrar em <a href="/contato">contato</a>.</p>
       </div>
     </div>
     <script src="https://code.jquery.com/jquery.js"></script>

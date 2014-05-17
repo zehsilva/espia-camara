@@ -35,8 +35,8 @@ print stopwords
 stemmer = nltk.stem.RSLPStemmer()
 
 ## set dir correctly ""
-dirdados = '/home/msc/eliezers/Dropbox/dados_deputados/' # diretorios com os dados originais dos deputados etc
-dircorpus = '/home/msc/eliezers/Dropbox/dados_deputados/' # diretorios com os dados do dicionarios, corpus, matriz de termo-documetos
+dirdados = '/home/msc/eliezers/datasets/dados_deputados/' # diretorios com os dados originais dos deputados etc
+dircorpus = '/home/msc/eliezers/datasets/dados_deputados/' # diretorios com os dados do dicionarios, corpus, matriz de termo-documetos
 
 
 
