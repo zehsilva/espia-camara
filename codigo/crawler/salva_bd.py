@@ -25,11 +25,11 @@ import itertools
 import math
 from fontes.geral import *
 
-usuario = 'root'
-senha = 'There15NoFreeLunch'
-banco = 'dadosabertos'
+usuario = 'espia_camara_usr'
+senha = 'DCeqswrwpMNNZAKd'
+banco = 'espia_camara_db_staging'
 
-pasta = '../v9/dados_deputados/'
+pasta = 'dados_deputados/'
 
 def salva_dados(dados, nome_arquivo):
 	with open(nome_arquivo, 'wb') as arquivo_dados:
