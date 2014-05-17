@@ -1079,41 +1079,6 @@ def salva_reunioes_orgaos(conexao):
 			
 			id_reuniao_orgao += 1
 
-
-def salva_dados_eleicoes2(conexao):
-	deputados = carrega_dados(pasta + 'deputados.pkl')
-	executa_query('TRUNCATE TABLE deputados_eleicoes_receitas', conexao)
-	
-	for id_deputado in deputados.keys():
-		try:
-			eleicao = deputados[id_deputado]['eleicao']
-		except KeyError:
-			continue
-		
-		if 'receitas' in eleicao.keys():
-			for receita in eleicao['receitas']:
-				cpf = arruma_campo(receita, 'cpf_cnpj')
-				cpf = None if cpf < 0 else cpf
-				
-				recibo = arruma_campo(receita, 'recibo')
-				recibo = None if recibo < 0 else recibo
-				
-				no_documento = arruma_campo(receita, 'no_documento')
-				no_documento = None if no_documento < 0 else no_documento
-
-				executa_query('INSERT INTO deputados_eleicoes_receitas ' \
-					'(id_deputado, id_eleicao, recibo, num_documento, ' \
-					'cpf_cnpj, data_doacao, valor, tipo, fonte, especie, ' \
-					'descricao) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, ' \
-					'%s, %s)', (arruma_campo(id_deputado), 2010, recibo, \
-					no_documento, cpf, arruma_campo(receita, 'data_doacao'), \
-					arruma_campo(receita, 'valor'), arruma_campo(receita, \
-					'tipo'), arruma_campo(receita, 'fonte'), \
-					arruma_campo(receita, 'especie'), arruma_campo(receita, \
-					'descricao')), conexao)
-
-
-
 conexao = MySQLdb.connect(host='localhost', user=usuario, passwd=senha, db=banco)
 
 remove = False
@@ -1140,9 +1105,6 @@ blocos_por_nome = dict([(blocos[b]['sigla_bloco'], b) for b in blocos.keys()])
 blocos_por_nome['GOVERNO'] = blocos_por_nome['GOV'] = blocos_por_nome['Gov.']
 
 try:
-	print 'Salvando dados eleitorais dos deputados...'
-	salva_dados_eleicoes2(conexao)
-	"""
 	print 'Salvando apreciacoes...'
 	salva_apreciacoes(conexao)
 	
@@ -1202,7 +1164,7 @@ try:
 	
 	print 'Salvando dados de reunioes de orgaos...'
 	salva_reunioes_orgaos(conexao)
-	"""
+	
 	conexao.commit()
 except:
 	conexao.rollback()
